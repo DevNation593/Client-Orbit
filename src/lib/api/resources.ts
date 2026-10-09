@@ -28,6 +28,7 @@ import type {
 } from "@/types/domain";
 import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
+import type { DuplicateCandidate } from "@/features/duplicates/contact-duplicates";
 import type { ApiNotification } from "@/features/notifications/notifications";
 import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
@@ -71,6 +72,14 @@ export const crmApi = {
         page,
         per_page: 25,
       }),
+    duplicateCheck: (criteria: Record<string, unknown>) =>
+      apiClient.post<DuplicateCandidate[]>(
+        "contacts/duplicate-check",
+        criteria,
+      ),
+    /** Absorbs `duplicate_id` into contact `id`; the duplicate is deleted. */
+    merge: (id: number, body: { duplicate_id: number }) =>
+      apiClient.post<Contact>(`contacts/${id}/merge`, body),
   },
   organizations: {
     list: (query?: QueryParams) =>

@@ -23,6 +23,7 @@ import {
   useUpdateContact,
 } from "@/hooks/use-crm";
 import { timelineEventToEntry } from "@/features/customer360/timeline";
+import { ContactDuplicates } from "@/features/duplicates/contact-duplicates";
 import { RecordTags } from "@/features/tags/record-tags";
 import { formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/common/page-header";
@@ -177,6 +178,7 @@ export default function ContactDetailPage() {
               </Button>
             </div>
           </RecordSummary>
+          <ContactDuplicates contact={item} />
           <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
             <Card>
               <CardHeader>
