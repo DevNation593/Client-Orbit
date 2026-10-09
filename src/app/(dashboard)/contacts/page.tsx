@@ -20,22 +20,48 @@ import {
 } from "@/components/tables/data-table";
 import { ListToolbar } from "@/components/tables/list-toolbar";
 import { Pagination } from "@/components/tables/pagination";
+import {
+  filtersToQuery,
+  viewColumnVisibility,
+  type SavedViewFilter,
+} from "@/features/saved-views/saved-views";
+import { SavedViewsMenu } from "@/features/saved-views/saved-views-menu";
 import { Button } from "@/components/ui/button";
+
+// Stable defaults: usePersistedState resets when its initial value changes.
+const NO_FILTERS: SavedViewFilter[] = [];
+const ALL_COLUMNS_VISIBLE: Record<string, boolean> = {};
+
+function isStatusFilter(filter: SavedViewFilter) {
+  return filter.field === "status" && filter.operator === "eq";
+}
 
 export default function ContactsPage() {
   const router = useRouter();
   const [search, setSearch] = usePersistedState("contacts.search", "");
-  const [status, setStatus] = usePersistedState("contacts.status", "");
+  const [filters, setFilters] = usePersistedState(
+    "contacts.filters",
+    NO_FILTERS,
+  );
+  const [columnVisibility, setColumnVisibility] = usePersistedState(
+    "contacts.columns",
+    ALL_COLUMNS_VISIBLE,
+  );
   const [page, setPage] = useState(1);
   const [removeId, setRemoveId] = useState<number | null>(null);
   const debouncedSearch = useDebouncedValue(search);
+  const statusValue = filters.find(isStatusFilter)?.value;
+  const status = typeof statusValue === "string" ? statusValue : "";
+  const setStatus = (value: string) =>
+    setFilters([
+      ...filters.filter((filter) => !isStatusFilter(filter)),
+      ...(value ? [{ field: "status", operator: "eq", value }] : []),
+    ]);
   const contacts = useContacts({
     page,
     per_page: 10,
     search: debouncedSearch,
-    ...(status
-      ? { "filter[status][operator]": "eq", "filter[status][value]": status }
-      : {}),
+    ...filtersToQuery(filters),
   });
   const remove = useDeleteContact();
   const columns: DataTableColumn<
@@ -145,12 +171,29 @@ export default function ContactsPage() {
         }}
         search={search}
         placeholder="Buscar por nombre, correo o teléfono…"
-        activeFilters={status ? 1 : 0}
+        activeFilters={filters.length}
         onClearFilters={() => {
-          setStatus("");
+          setFilters(NO_FILTERS);
           setPage(1);
         }}
       >
+        <SavedViewsMenu
+          columnVisibility={columnVisibility}
+          columns={columns.map((column) => column.key)}
+          entityType="contacts"
+          filters={filters}
+          onApply={(view) => {
+            if (!view) return;
+            setFilters(view.filters);
+            setColumnVisibility(
+              viewColumnVisibility(
+                view,
+                columns.map((column) => column.key),
+              ),
+            );
+            setPage(1);
+          }}
+        />
         <select
           aria-label="Filtrar por estado"
           className="border-border text-muted h-9 rounded-lg border bg-white px-2.5 text-xs font-semibold"
@@ -171,7 +214,8 @@ export default function ContactsPage() {
       ) : (
         <>
           <DataTable
-            preferenceKey="contacts"
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
             columns={columns}
             emptyDescription="Crea el primer contacto o ajusta tu búsqueda para ver resultados."
             emptyTitle="No hay contactos"

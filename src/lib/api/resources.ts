@@ -30,6 +30,10 @@ import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
 import type { DuplicateCandidate } from "@/features/duplicates/contact-duplicates";
 import type { ApiNotification } from "@/features/notifications/notifications";
+import type {
+  SavedView,
+  SavedViewPayload,
+} from "@/features/saved-views/saved-views";
 import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
 
@@ -294,6 +298,14 @@ export const crmApi = {
       apiClient.delete<{ deleted: boolean }>(
         `tags/${tagId}/assignments/${assignmentId}`,
       ),
+  },
+  savedViews: {
+    list: (query?: QueryParams) =>
+      getPaginated<SavedView>("saved-views", query),
+    create: (body: SavedViewPayload) =>
+      apiClient.post<SavedView>("saved-views", body),
+    remove: (id: number) =>
+      apiClient.delete<{ deleted: boolean }>(`saved-views/${id}`),
   },
   notifications: {
     list: (query?: QueryParams) =>
