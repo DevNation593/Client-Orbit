@@ -31,8 +31,8 @@ Además, varias pantallas del CRM base siguen usando los rodeos anteriores a API
 | Autenticación y sesiones | DONE | Login, registro, logout, recuperación, invitaciones y cookie HttpOnly | MFA y gestión de sesiones activas no están expuestos por API |
 | RBAC y permisos | DONE | Can, menús y acciones condicionadas por permisos | Matriz editable de permisos y field-level permissions |
 | Contactos | DONE | CRUD, filtros, paginación, campos personalizados, acciones rápidas, preferencias de búsqueda/columnas y API real | Vistas guardadas (`/saved-views`) y etiquetas (`/tags`): API disponible, sin consumir |
-| Customer 360 | PARTIAL | Detalle, propiedades, organizaciones, actividad filtrable, relaciones, oportunidades, tareas, archivos y acciones rápidas | Sustituir las consultas sueltas por `GET /contacts/{id}/overview` |
-| Timeline y actividades | PARTIAL | Componente reusable, filtros All/Messages/Sales/Activities/System y composer para notas/llamadas/reuniones/correos | Consumir `GET /contacts/{id}/timeline` (paginado, con auditoría y linaje de merge) |
+| Customer 360 | DONE | Ficha del contacto alimentada por `GET /contacts/{id}/overview`: oportunidades, tareas, relaciones y archivos con total por módulo; los módulos sin permiso no se muestran | Leads, conversaciones y cotizaciones que el overview ya devuelve; enlace «ver todos» cuando hay más de 10 |
+| Timeline y actividades | DONE | Timeline del contacto desde `GET /contacts/{id}/timeline`: actividad, eventos de dominio, auditoría y cotizaciones, con carga de páginas anteriores, filtros por categoría y composer | Los filtros se aplican a lo ya cargado; el API solo filtra por `source` y `event`. La página `/activities` sigue usando el listado general |
 | Duplicados y fusión | MISSING | — | `POST /contacts/duplicate-check`, `POST /contacts/{id}/merge` y equivalentes en `/companies` |
 | Organizaciones | DONE | CRUD, contactos relacionados y campos personalizados | Timeline y acciones 360 |
 | Leads | PARTIAL | CRUD, filtros, detalle y conversión a contacto/organización/deal | Score explicable (`/leads/{id}/scores`), routing (`/leads/{id}/route`, `/routing-executions`) y actividad 360 |
@@ -46,7 +46,7 @@ Además, varias pantallas del CRM base siguen usando los rodeos anteriores a API
 | Importaciones/exportaciones | PARTIAL | Pantalla de datos y consumo de endpoints | Seguimiento del job con `GET /imports/{id}` y `GET /exports/{id}`; errores descargables |
 | Auditoría | DONE | Visor conectado a API | Filtros avanzados y exportación |
 | Integraciones | PARTIAL | Catálogo, credenciales cifradas en backend, health/connect/disconnect y endpoints webhook | OAuth interactivo y panel de entregas de webhooks: sin endpoint |
-| Búsqueda global | PARTIAL | Resultados reales agrupados de contactos, organizaciones, leads, oportunidades y tareas, con deep links | Migrar de búsquedas paralelas en el navegador a `GET /search` (ranking y permisos en backend) |
+| Búsqueda global | DONE | `GET /search` con ranking y permisos en backend: contactos, organizaciones, leads, oportunidades, documentos y registros personalizados, agrupados y con deep links | Las tareas no están en `/search` y se consultan aparte; los documentos enlazan al listado porque no tienen ficha |
 | Command palette | DONE | Ctrl/Cmd+K, navegación y acciones de creación condicionadas por permisos | Catálogo de acciones administrable |
 | Notificaciones | PARTIAL | Panel visual local | Conectar `/notifications`, `/notifications/unread-count`, `/notification-preferences` y los canales privados de Reverb. No hay cliente de websockets instalado |
 

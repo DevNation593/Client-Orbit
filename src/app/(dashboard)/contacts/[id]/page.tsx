@@ -15,23 +15,14 @@ import {
 import { useState } from "react";
 import {
   useContact,
+  useContactOverview,
+  useContactTimeline,
   useCreateActivity,
   useDeleteContact,
-  useActivities,
-  useDeals,
   useFieldDefinitions,
-  useFiles,
-  useRelations,
-  useTasks,
   useUpdateContact,
 } from "@/hooks/use-crm";
-import type {
-  Activity,
-  Deal,
-  FileRecord,
-  Relation,
-  Task,
-} from "@/types/domain";
+import { timelineEventToEntry } from "@/features/customer360/timeline";
 import { formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/common/page-header";
 import { RecordSummary } from "@/components/common/record-summary";
@@ -56,11 +47,8 @@ export default function ContactDetailPage() {
   const [activityOpen, setActivityOpen] = useState(false);
   const contact = useContact(id);
   const fields = useFieldDefinitions("contacts");
-  const activities = useActivities({ page: 1, per_page: 100 });
-  const deals = useDeals({ page: 1, per_page: 100 });
-  const tasks = useTasks({ page: 1, per_page: 100 });
-  const files = useFiles({ page: 1, per_page: 100 });
-  const relations = useRelations({ page: 1, per_page: 100 });
+  const overview = useContactOverview(id);
+  const timeline = useContactTimeline(id);
   const update = useUpdateContact();
   const remove = useDeleteContact();
   const createActivity = useCreateActivity();
@@ -75,19 +63,9 @@ export default function ContactDetailPage() {
     );
   const item = contact.data;
   const fullName = `${item.first_name} ${item.last_name ?? ""}`.trim();
-  const relatedActivities =
-    activities.data?.items.filter((activity) =>
-      isContactActivity(activity, item.id),
-    ) ?? [];
-  const relatedDeals =
-    deals.data?.items.filter((deal) => isContactDeal(deal, item.id)) ?? [];
-  const relatedTasks =
-    tasks.data?.items.filter((task) => isContactTask(task, item.id)) ?? [];
-  const relatedFiles =
-    files.data?.items.filter((file) => isContactFile(file, item.id)) ?? [];
-  const relatedRelations =
-    relations.data?.items.filter((relation) =>
-      isContactRelation(relation, item.id),
+  const timelineEntries =
+    timeline.data?.pages.flatMap((page) =>
+      page.items.map(timelineEventToEntry),
     ) ?? [];
   return (
     <>
@@ -253,31 +231,33 @@ export default function ContactDetailPage() {
                 </Button>
               </CardHeader>
               <CardContent>
-                {activities.isError ? (
+                {timeline.isError ? (
                   <p className="text-danger rounded-xl bg-rose-50 px-3 py-2.5 text-sm">
                     No se pudo cargar la actividad del contacto.
                   </p>
                 ) : (
                   <ActivityTimeline
-                    activities={relatedActivities}
-                    loading={activities.isLoading}
+                    activities={timelineEntries}
+                    hasMore={timeline.hasNextPage}
+                    loading={timeline.isLoading}
+                    loadingMore={timeline.isFetchingNextPage}
+                    onLoadMore={() => void timeline.fetchNextPage()}
                   />
                 )}
               </CardContent>
             </Card>
           </div>
-          <Customer360Panels
-            contact={item}
-            deals={relatedDeals}
-            dealsLoading={deals.isLoading}
-            files={relatedFiles}
-            filesLoading={files.isLoading}
-            organizations={item.organizations ?? []}
-            relations={relatedRelations}
-            relationsLoading={relations.isLoading}
-            tasks={relatedTasks}
-            tasksLoading={tasks.isLoading}
-          />
+          {overview.isError ? (
+            <p className="text-danger mt-6 rounded-xl bg-rose-50 px-3 py-2.5 text-sm">
+              No se pudieron cargar los registros relacionados del contacto.
+            </p>
+          ) : (
+            <Customer360Panels
+              contact={item}
+              loading={overview.isLoading}
+              modules={overview.data?.modules}
+            />
+          )}
         </>
       )}
       <ConfirmDialog
@@ -304,54 +284,13 @@ export default function ContactDetailPage() {
               activityable_type: "contact",
               activityable_id: String(id),
             });
-            await activities.refetch();
+            await timeline.refetch();
             setActivityOpen(false);
           }}
         />
       </Dialog>
     </>
   );
-}
-
-function isContactActivity(activity: Activity, contactId: number) {
-  return (
-    String(activity.activityable_id ?? "") === String(contactId) &&
-    isEntityType(activity.activityable_type, "contact")
-  );
-}
-
-function isContactDeal(deal: Deal, contactId: number) {
-  return deal.contact_id === contactId || deal.contact?.id === contactId;
-}
-
-function isContactTask(task: Task, contactId: number) {
-  return (
-    String(task.related_id ?? "") === String(contactId) &&
-    isEntityType(task.related_type, "contact")
-  );
-}
-
-function isContactFile(file: FileRecord, contactId: number) {
-  return (
-    String(file.related_id ?? "") === String(contactId) &&
-    isEntityType(file.related_type, "contact")
-  );
-}
-
-function isContactRelation(relation: Relation, contactId: number) {
-  return (
-    (isEntityType(relation.from_type, "contact") &&
-      String(relation.from_id) === String(contactId)) ||
-    (isEntityType(relation.to_type, "contact") &&
-      String(relation.to_id) === String(contactId))
-  );
-}
-
-function isEntityType(type: string | null | undefined, expected: string) {
-  const normalized = (type ?? "").toLowerCase().replaceAll("\\", "/");
-  const parts = normalized.split("/");
-  const lastPart = parts[parts.length - 1] ?? normalized;
-  return lastPart === expected || lastPart === expected + "s";
 }
 
 function Info({
