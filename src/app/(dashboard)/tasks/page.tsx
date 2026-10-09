@@ -8,6 +8,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { useDeleteTask, useTasks, useUpdateTask } from "@/hooks/use-crm";
 import { formatRelativeDate } from "@/lib/utils";
+import type { Task } from "@/types/domain";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState } from "@/components/common/async-state";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -17,32 +18,32 @@ import {
   type DataTableColumn,
 } from "@/components/tables/data-table";
 import { ListToolbar } from "@/components/tables/list-toolbar";
+import { SavedViewsMenu } from "@/features/saved-views/saved-views-menu";
+import { useListView } from "@/features/saved-views/use-list-view";
 import { Pagination } from "@/components/tables/pagination";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 
+// Column key to the field `GET /tasks` accepts in `sort`.
+const SORT_FIELDS = {
+  title: "title",
+  priority: "priority",
+  status: "status",
+  due_at: "due_at",
+};
+
 export default function TasksPage() {
   const router = useRouter();
   const [search, setSearch] = usePersistedState("tasks.search", "");
-  const [status, setStatus] = usePersistedState("tasks.status", "");
-  const [page, setPage] = useState(1);
   const [removeId, setRemoveId] = useState<number | null>(null);
-  const tasks = useTasks({
-    page,
-    per_page: 10,
-    search: useDebouncedValue(search),
-    ...(status
-      ? { "filter[status][operator]": "eq", "filter[status][value]": status }
-      : {}),
-  });
+  const debouncedSearch = useDebouncedValue(search);
   const update = useUpdateTask();
   const remove = useDeleteTask();
-  const columns: DataTableColumn<
-    NonNullable<typeof tasks.data>["items"][number]
-  >[] = [
+  const columns: DataTableColumn<Task>[] = [
     {
       key: "title",
       header: "Tarea",
+      sortable: true,
       render: (task) => (
         <div className="flex items-center gap-3">
           <button
@@ -79,11 +80,13 @@ export default function TasksPage() {
     {
       key: "priority",
       header: "Prioridad",
+      sortable: true,
       render: (task) => <StatusBadge value={task.priority} />,
     },
     {
       key: "status",
       header: "Estado",
+      sortable: true,
       render: (task) => <StatusBadge value={task.status} />,
     },
     {
@@ -129,6 +132,19 @@ export default function TasksPage() {
       ),
     },
   ];
+  const list = useListView("tasks", {
+    columns: columns.map((column) => column.key),
+    sortFields: SORT_FIELDS,
+  });
+  const { setPage } = list;
+  const statusValue = list.filterValue("status");
+  const status = typeof statusValue === "string" ? statusValue : "";
+  const tasks = useTasks({
+    page: list.page,
+    per_page: 10,
+    search: debouncedSearch,
+    ...list.query,
+  });
   return (
     <>
       <PageHeader
@@ -155,20 +171,15 @@ export default function TasksPage() {
         }}
         search={search}
         placeholder="Buscar tareas…"
-        activeFilters={status ? 1 : 0}
-        onClearFilters={() => {
-          setStatus("");
-          setPage(1);
-        }}
+        activeFilters={list.filters.length}
+        onClearFilters={list.clearFilters}
       >
+        <SavedViewsMenu entityType="tasks" {...list.views} />
         <select
           aria-label="Filtrar por estado"
           className="border-border text-muted h-9 rounded-lg border bg-white px-2.5 text-xs font-semibold"
           value={status}
-          onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(1);
-          }}
+          onChange={(event) => list.setFilter("status", event.target.value)}
         >
           <option value="">Todos los estados</option>
           <option value="pending">Pendientes</option>
@@ -181,7 +192,9 @@ export default function TasksPage() {
       ) : (
         <>
           <DataTable
-            preferenceKey="tasks"
+            {...list.sorting}
+            columnVisibility={list.columnVisibility}
+            onColumnVisibilityChange={list.setColumnVisibility}
             columns={columns}
             emptyDescription="Crea una tarea para organizar el siguiente paso."
             emptyTitle="No hay tareas"

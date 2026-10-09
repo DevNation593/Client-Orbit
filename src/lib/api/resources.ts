@@ -304,6 +304,8 @@ export const crmApi = {
       getPaginated<SavedView>("saved-views", query),
     create: (body: SavedViewPayload) =>
       apiClient.post<SavedView>("saved-views", body),
+    update: (id: number, body: Partial<SavedViewPayload>) =>
+      apiClient.patch<SavedView>(`saved-views/${id}`, body),
     remove: (id: number) =>
       apiClient.delete<{ deleted: boolean }>(`saved-views/${id}`),
   },

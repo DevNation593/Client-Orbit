@@ -11,8 +11,10 @@ import { crmApi } from "@/lib/api/resources";
 import { useAuthStore } from "@/lib/auth-store";
 import {
   buildViewPayload,
+  type ListSort,
   type SavedView,
   type SavedViewFilter,
+  type ViewVisibility,
 } from "./saved-views";
 
 interface SavedViewsMenuProps {
@@ -20,11 +22,21 @@ interface SavedViewsMenuProps {
   entityType: string;
   /** Current state of the list, used when saving a new view. */
   filters: SavedViewFilter[];
+  sort: ListSort | null;
   columns: string[];
   columnVisibility: Record<string, boolean>;
   /** Called with the chosen view, or `null` when no view is selected. */
   onApply: (view: SavedView | null) => void;
 }
+
+const visibilityOptions: Array<[value: ViewVisibility, label: string]> = [
+  ["private", "Solo yo"],
+  ["team", "Mi rol"],
+  ["tenant", "Toda la organización"],
+];
+
+const selectClassName =
+  "border-border text-muted h-9 max-w-[200px] rounded-lg border bg-white px-2.5 text-xs font-semibold";
 
 export function SavedViewsMenu(props: SavedViewsMenuProps) {
   const user = useAuthStore((state) => state.user);
@@ -44,6 +56,7 @@ export function SavedViewsMenu(props: SavedViewsMenuProps) {
 function ViewPicker({
   entityType,
   filters,
+  sort,
   columns,
   columnVisibility,
   onApply,
@@ -55,6 +68,7 @@ function ViewPicker({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
+  const [visibility, setVisibility] = useState<ViewVisibility>("private");
   const [error, setError] = useState<string | null>(null);
 
   const views = useQuery({
@@ -64,6 +78,7 @@ function ViewPicker({
   });
   const items = views.data?.items ?? [];
   const selected = items.find((view) => view.id === selectedId) ?? null;
+  const ownsSelected = selected?.user_id === userId;
 
   const fail = (reason: unknown) =>
     setError(
@@ -71,6 +86,11 @@ function ViewPicker({
         ? (Object.values(reason.fieldErrors)[0]?.[0] ?? reason.message)
         : "No se pudo guardar la vista.",
     );
+  const stopNaming = () => {
+    setNaming(false);
+    setName("");
+    setVisibility("private");
+  };
   const save = useMutation({
     mutationFn: () =>
       crmApi.savedViews.create(
@@ -78,16 +98,25 @@ function ViewPicker({
           entityType,
           name,
           filters,
+          sort,
           columns,
           columnVisibility,
+          visibility,
         }),
       ),
     onSuccess: async (view) => {
       await queryClient.invalidateQueries({ queryKey });
       setSelectedId(view.id);
-      setNaming(false);
-      setName("");
+      stopNaming();
     },
+    onError: fail,
+  });
+  const share = useMutation({
+    mutationFn: (change: { view: SavedView; visibility: ViewVisibility }) =>
+      crmApi.savedViews.update(change.view.id, {
+        visibility: change.visibility,
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
     onError: fail,
   });
   const remove = useMutation({
@@ -104,7 +133,7 @@ function ViewPicker({
     <div className="flex flex-wrap items-center gap-2">
       <select
         aria-label="Vista guardada"
-        className="border-border text-muted h-9 max-w-[200px] rounded-lg border bg-white px-2.5 text-xs font-semibold"
+        className={selectClassName}
         onChange={(event) => {
           const id = event.target.value ? Number(event.target.value) : null;
           setSelectedId(id);
@@ -120,16 +149,42 @@ function ViewPicker({
           </option>
         ))}
       </select>
-      {canManage && selected && selected.user_id === userId ? (
-        <Button
-          aria-label={"Eliminar vista " + selected.name}
-          disabled={remove.isPending}
-          onClick={() => remove.mutate(selected)}
-          size="icon"
-          variant="ghost"
-        >
-          <Trash2 size={15} />
-        </Button>
+      {selected && !ownsSelected && selected.owner ? (
+        <span className="text-muted text-xs">
+          Compartida por {selected.owner.name}
+        </span>
+      ) : null}
+      {canManage && selected && ownsSelected ? (
+        <>
+          <select
+            aria-label={"Compartir vista " + selected.name}
+            className={selectClassName}
+            disabled={share.isPending}
+            onChange={(event) => {
+              setError(null);
+              share.mutate({
+                view: selected,
+                visibility: event.target.value as ViewVisibility,
+              });
+            }}
+            value={selected.visibility}
+          >
+            {visibilityOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <Button
+            aria-label={"Eliminar vista " + selected.name}
+            disabled={remove.isPending}
+            onClick={() => remove.mutate(selected)}
+            size="icon"
+            variant="ghost"
+          >
+            <Trash2 size={15} />
+          </Button>
+        </>
       ) : null}
       {canManage && !naming ? (
         <Button
@@ -147,7 +202,7 @@ function ViewPicker({
       ) : null}
       {canManage && naming ? (
         <form
-          className="flex items-center gap-2"
+          className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             if (!name.trim()) return;
@@ -164,13 +219,26 @@ function ViewPicker({
             placeholder="Nombre de la vista"
             value={name}
           />
+          <select
+            aria-label="Quién puede ver la vista"
+            className={selectClassName}
+            onChange={(event) =>
+              setVisibility(event.target.value as ViewVisibility)
+            }
+            value={visibility}
+          >
+            {visibilityOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
           <Button disabled={save.isPending} size="sm" type="submit">
             Guardar
           </Button>
           <Button
             onClick={() => {
-              setNaming(false);
-              setName("");
+              stopNaming();
               setError(null);
             }}
             size="sm"

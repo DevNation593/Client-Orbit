@@ -13,6 +13,8 @@ import { PageHeader } from "@/components/common/page-header";
 import { ErrorState } from "@/components/common/async-state";
 import { Can } from "@/components/common/can";
 import { PipelineBoard } from "@/features/deals/components/pipeline-board";
+import { SavedViewsMenu } from "@/features/saved-views/saved-views-menu";
+import { useListView } from "@/features/saved-views/use-list-view";
 import {
   DataTable,
   type DataTableColumn,
@@ -21,19 +23,76 @@ import { ListToolbar } from "@/components/tables/list-toolbar";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 
+// Column key to the field `GET /deals` accepts in `sort`; the value is not one.
+const SORT_FIELDS = { name: "name", status: "status" };
+
+const columns: DataTableColumn<Deal>[] = [
+  {
+    key: "name",
+    header: "Oportunidad",
+    sortable: true,
+    render: (deal) => (
+      <Link className="hover:text-brand font-bold" href={`/deals/${deal.id}`}>
+        {deal.name}
+      </Link>
+    ),
+  },
+  {
+    key: "stage",
+    header: "Etapa",
+    render: (deal) => (
+      <StatusBadge
+        value={
+          deal.stage?.is_won
+            ? "won"
+            : deal.stage?.is_lost
+              ? "lost"
+              : deal.stage
+                ? "open"
+                : undefined
+        }
+        label={deal.stage?.name ?? "Sin etapa"}
+      />
+    ),
+  },
+  {
+    key: "value",
+    header: "Valor",
+    render: (deal) => (
+      <span className="font-bold">
+        {formatCurrency(deal.value, deal.currency)}
+      </span>
+    ),
+  },
+  {
+    key: "owner",
+    header: "Responsable",
+    render: (deal) =>
+      deal.owner?.name ?? <span className="text-muted">Sin asignar</span>,
+  },
+  {
+    key: "status",
+    header: "Estado",
+    sortable: true,
+    render: (deal) => <StatusBadge value={deal.status} />,
+  },
+];
+const COLUMN_KEYS = columns.map((column) => column.key);
+
 export default function DealsPage() {
   const router = useRouter();
-  const [pipelineId, setPipelineId] = usePersistedState<number | null>(
-    "deals.pipeline",
-    null,
-  );
   const [view, setView] = usePersistedState<"board" | "list">(
     "deals.view",
     "board",
   );
   const [search, setSearch] = usePersistedState("deals.search", "");
+  const list = useListView("deals", {
+    columns: COLUMN_KEYS,
+    sortFields: SORT_FIELDS,
+  });
+  const pipelineId = Number(list.filterValue("pipeline_id")) || null;
   const pipelines = usePipelines();
-  const deals = useDeals({ page: 1, per_page: 100, search });
+  const deals = useDeals({ page: 1, per_page: 100, search, ...list.query });
   const move = useMoveDeal();
   const [moveError, setMoveError] = useState<string | null>(null);
   const selectedPipeline =
@@ -47,58 +106,6 @@ export default function DealsPage() {
       ) ?? [],
     [deals.data?.items, selectedPipeline],
   );
-  const columns: DataTableColumn<
-    NonNullable<typeof deals.data>["items"][number]
-  >[] = [
-    {
-      key: "name",
-      header: "Oportunidad",
-      render: (deal) => (
-        <Link className="hover:text-brand font-bold" href={`/deals/${deal.id}`}>
-          {deal.name}
-        </Link>
-      ),
-    },
-    {
-      key: "stage",
-      header: "Etapa",
-      render: (deal) => (
-        <StatusBadge
-          value={
-            deal.stage?.is_won
-              ? "won"
-              : deal.stage?.is_lost
-                ? "lost"
-                : deal.stage
-                  ? "open"
-                  : undefined
-          }
-          label={deal.stage?.name ?? "Sin etapa"}
-        />
-      ),
-    },
-    {
-      key: "value",
-      header: "Valor",
-      sortable: true,
-      render: (deal) => (
-        <span className="font-bold">
-          {formatCurrency(deal.value, deal.currency)}
-        </span>
-      ),
-    },
-    {
-      key: "owner",
-      header: "Responsable",
-      render: (deal) =>
-        deal.owner?.name ?? <span className="text-muted">Sin asignar</span>,
-    },
-    {
-      key: "status",
-      header: "Estado",
-      render: (deal) => <StatusBadge value={deal.status} />,
-    },
-  ];
   const moveDeal = (deal: Deal, stageId: number) => {
     setMoveError(null);
     move.mutate(
@@ -138,15 +145,17 @@ export default function DealsPage() {
         onSearch={setSearch}
         search={search}
         placeholder="Buscar oportunidades…"
-        activeFilters={pipelineId ? 1 : 0}
-        onClearFilters={() => setPipelineId(null)}
+        activeFilters={list.filters.length}
+        onClearFilters={list.clearFilters}
       >
+        <SavedViewsMenu entityType="deals" {...list.views} />
         <select
           aria-label="Seleccionar pipeline"
           className="border-border text-muted h-9 rounded-lg border bg-white px-2.5 text-xs font-semibold"
           value={selectedPipeline?.id ?? ""}
           onChange={(event) =>
-            setPipelineId(
+            list.setFilter(
+              "pipeline_id",
               event.target.value ? Number(event.target.value) : null,
             )
           }
@@ -205,7 +214,9 @@ export default function DealsPage() {
         </>
       ) : (
         <DataTable
-          preferenceKey="deals"
+          {...list.sorting}
+          columnVisibility={list.columnVisibility}
+          onColumnVisibilityChange={list.setColumnVisibility}
           columns={columns}
           emptyDescription="Crea una oportunidad para empezar a visualizar tu pipeline."
           emptyTitle="No hay oportunidades"

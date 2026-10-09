@@ -89,6 +89,12 @@ function stubApi(options: { duplicateName?: boolean } = {}) {
         return json({ data: created, meta: {} }, 201);
       }
       const remove = path.match(/^saved-views\/(\d+)$/);
+      if (method === "PATCH" && remove) {
+        const view = views.find((entry) => entry.id === Number(remove[1]));
+        if (!view) return json({ message: "Not found", errors: {} }, 404);
+        Object.assign(view, body);
+        return json({ data: view, meta: {} });
+      }
       if (method === "DELETE" && remove) {
         views.splice(
           views.findIndex((view) => view.id === Number(remove[1])),
@@ -114,6 +120,7 @@ function renderMenu(onApply: (view: SavedView | null) => void = () => {}) {
         entityType="contacts"
         filters={[{ field: "status", operator: "eq", value: "inactive" }]}
         onApply={onApply}
+        sort={{ field: "first_name", direction: "desc" }}
       />
     </QueryClientProvider>,
   );
@@ -195,6 +202,8 @@ describe("SavedViewsMenu", () => {
         entity_type: "contacts",
         name: "Inactivos",
         visibility: "private",
+        sort_field: "first_name",
+        sort_direction: "desc",
         columns: ["name", "status"],
         filters: [{ field: "status", operator: "eq", value: "inactive" }],
       },
@@ -204,6 +213,74 @@ describe("SavedViewsMenu", () => {
         "Inactivos",
       ),
     );
+  });
+
+  it("shares a new view with the whole organization when asked to", async () => {
+    signIn(["saved_views.view", "saved_views.manage"]);
+    const requested = stubApi();
+    renderMenu();
+    await screen.findByRole("option", { name: "Prospectos" });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Guardar vista" }),
+    );
+    await userEvent.type(
+      screen.getByLabelText("Nombre de la vista"),
+      "Inactivos",
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText("Quién puede ver la vista"),
+      "Toda la organización",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await screen.findByRole("option", { name: "Inactivos" });
+    expect(
+      requested.find((entry) => entry.call === "POST saved-views")?.body,
+    ).toMatchObject({ name: "Inactivos", visibility: "tenant" });
+  });
+
+  it("changes who an existing view of the user is shared with", async () => {
+    signIn(["saved_views.view", "saved_views.manage"]);
+    const requested = stubApi();
+    renderMenu();
+    await screen.findByRole("option", { name: "Prospectos" });
+    await userEvent.selectOptions(
+      screen.getByLabelText("Vista guardada"),
+      "Prospectos",
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Compartir vista Prospectos"),
+      "Mi rol",
+    );
+
+    await vi.waitFor(() =>
+      expect(requested).toContainEqual({
+        call: "PATCH saved-views/1",
+        body: { visibility: "team" },
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(
+        screen.getByLabelText("Compartir vista Prospectos"),
+      ).toHaveDisplayValue("Mi rol"),
+    );
+  });
+
+  it("says who shared a view that belongs to someone else", async () => {
+    signIn(["saved_views.view", "saved_views.manage"]);
+    stubApi();
+    renderMenu();
+    await screen.findByRole("option", { name: "Clientes del equipo" });
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Vista guardada"),
+      "Clientes del equipo",
+    );
+
+    expect(screen.getByText("Compartida por Otra persona")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Compartir vista/)).not.toBeInTheDocument();
   });
 
   it("deletes a view the user owns", async () => {
