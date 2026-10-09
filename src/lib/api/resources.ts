@@ -24,6 +24,7 @@ import type {
   WebhookEndpoint,
   WebhookEndpointCreateResponse,
 } from "@/types/domain";
+import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
 
 export interface Paginated<T> {
@@ -46,6 +47,7 @@ export async function getPaginated<T>(
 }
 
 export const crmApi = {
+  search: (query: QueryParams) => getPaginated<SearchRecord>("search", query),
   contacts: {
     list: (query?: QueryParams) => getPaginated<Contact>("contacts", query),
     get: (id: number) => apiClient.get<Contact>(`contacts/${id}`),

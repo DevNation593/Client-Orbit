@@ -6,21 +6,27 @@ import {
   BriefcaseBusiness,
   Building2,
   CheckSquare,
+  Database,
+  FileText,
   LoaderCircle,
   Search,
   UserRound,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { GlobalSearchKind } from "@/features/search/global-search";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useGlobalSearch } from "@/hooks/use-global-search";
 import { Input } from "@/components/ui/input";
 
-const icons = {
+const icons: Record<GlobalSearchKind, LucideIcon> = {
   contact: UserRound,
   organization: Building2,
   lead: UserRound,
   deal: BriefcaseBusiness,
   task: CheckSquare,
+  document: FileText,
+  custom_object: Database,
 };
 
 export function GlobalSearch() {
@@ -32,8 +38,7 @@ export function GlobalSearch() {
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
-      if (!containerRef.current?.contains(event.target as Node))
-        setOpen(false);
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
     };
     window.addEventListener("pointerdown", handlePointerDown);
     return () => window.removeEventListener("pointerdown", handlePointerDown);
@@ -73,46 +78,54 @@ export function GlobalSearch() {
               <LoaderCircle className="animate-spin" size={15} />
               Buscando en tus registros…
             </p>
-          ) : search.data?.failed === 5 ? (
+          ) : search.isError ? (
             <p className="text-danger flex items-center gap-2 p-3 text-xs">
               <AlertCircle size={15} />
               No se pudo consultar la búsqueda. Intenta nuevamente.
             </p>
           ) : search.data?.groups.length ? (
-            search.data.groups.map((group) => {
-              const Icon = icons[group.kind];
-              return (
-                <div key={group.kind}>
-                  <p className="text-muted px-2 py-1.5 text-[10px] font-bold tracking-wide uppercase">
-                    {group.label}
-                  </p>
-                  {group.results.map((result) => (
-                    <Link
-                      className="hover:bg-surface-subtle flex items-center gap-2 rounded-xl px-2.5 py-2"
-                      href={result.href}
-                      key={result.kind + result.id}
-                      onClick={() => {
-                        setOpen(false);
-                        setValue("");
-                      }}
-                      role="option"
-                    >
-                      <Icon className="text-brand" size={16} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">
-                          {result.label}
-                        </span>
-                        {result.description ? (
-                          <span className="text-muted block truncate text-xs">
-                            {result.description}
+            <>
+              {search.data.groups.map((group) => {
+                const Icon = icons[group.kind];
+                return (
+                  <div key={group.kind}>
+                    <p className="text-muted px-2 py-1.5 text-[10px] font-bold tracking-wide uppercase">
+                      {group.label}
+                    </p>
+                    {group.results.map((result) => (
+                      <Link
+                        className="hover:bg-surface-subtle flex items-center gap-2 rounded-xl px-2.5 py-2"
+                        href={result.href}
+                        key={result.kind + result.id}
+                        onClick={() => {
+                          setOpen(false);
+                          setValue("");
+                        }}
+                        role="option"
+                      >
+                        <Icon className="text-brand" size={16} />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">
+                            {result.label}
                           </span>
-                        ) : null}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              );
-            })
+                          {result.description ? (
+                            <span className="text-muted block truncate text-xs">
+                              {result.description}
+                            </span>
+                          ) : null}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                );
+              })}
+              {search.data.partial ? (
+                <p className="text-muted flex items-center gap-2 p-3 text-xs">
+                  <AlertCircle size={15} />
+                  Algunos módulos no se pudieron consultar.
+                </p>
+              ) : null}
+            </>
           ) : (
             <p className="text-muted p-3 text-xs">
               No hay registros que coincidan en los módulos autorizados.
