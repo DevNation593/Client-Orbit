@@ -359,22 +359,31 @@ export interface AuditLog {
   created_at?: string;
 }
 
+export type BatchStatus = "queued" | "processing" | "completed" | "failed";
+
 export interface ImportBatch {
   id: number;
   entity_type: string;
-  status: string;
-  total_rows?: number;
-  processed_rows?: number;
-  failed_rows?: number;
-  errors?: JsonValue[];
+  original_filename?: string;
+  status: BatchStatus;
+  /** Filled in when the job ends; `errors` holds at most 100 rows. */
+  summary?: {
+    processed: number;
+    failed: number;
+    errors: Array<{ row: number; message: string }>;
+  } | null;
+  error?: string | null;
   created_at?: string;
 }
 
 export interface ExportBatch {
   id: number;
   entity_type: string;
-  status: string;
-  file_path?: string | null;
+  status: BatchStatus;
+  row_count?: number | null;
+  error?: string | null;
+  /** Only present for completed exports stored on S3-compatible storage. */
+  download_url?: string;
   created_at?: string;
 }
 

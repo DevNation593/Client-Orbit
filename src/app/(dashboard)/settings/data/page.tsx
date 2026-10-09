@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2 } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import {
+  ExportBatchStatus,
+  ImportBatchStatus,
+} from "@/features/data-jobs/batch-status";
 import { crmApi } from "@/lib/api/resources";
 import type { ExportBatch, ImportBatch } from "@/types/domain";
 import { PageHeader } from "@/components/common/page-header";
@@ -79,13 +83,7 @@ export default function DataOperationsPage() {
                 : "Procesar importación"}
             </Button>
             {importBatch ? (
-              <div className="text-success flex gap-2 rounded-xl bg-emerald-50 p-3 text-sm">
-                <CheckCircle2 className="shrink-0" size={17} />
-                <span>
-                  Importación #{importBatch.id} aceptada. El procesamiento
-                  continuará en segundo plano.
-                </span>
-              </div>
+              <ImportBatchStatus batch={importBatch} key={importBatch.id} />
             ) : null}
           </CardContent>
         </Card>
@@ -124,12 +122,7 @@ export default function DataOperationsPage() {
               {busy === "export" ? "Solicitando…" : "Solicitar exportación"}
             </Button>
             {exportBatch ? (
-              <div className="text-success flex gap-2 rounded-xl bg-emerald-50 p-3 text-sm">
-                <CheckCircle2 className="shrink-0" size={17} />
-                <span>
-                  Exportación #{exportBatch.id} aceptada para procesamiento.
-                </span>
-              </div>
+              <ExportBatchStatus batch={exportBatch} key={exportBatch.id} />
             ) : null}
           </CardContent>
         </Card>
