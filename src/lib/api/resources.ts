@@ -28,7 +28,7 @@ import type {
 } from "@/types/domain";
 import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
-import type { DuplicateCandidate } from "@/features/duplicates/contact-duplicates";
+import type { DuplicateCandidate } from "@/features/duplicates/duplicates";
 import type { ApiNotification } from "@/features/notifications/notifications";
 import type {
   SavedView,
@@ -36,6 +36,12 @@ import type {
 } from "@/features/saved-views/saved-views";
 import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
+
+/** `duplicate_id` is absorbed and deleted; overrides win over both records. */
+export interface MergeBody {
+  duplicate_id: number;
+  field_overrides?: Record<string, unknown>;
+}
 
 export interface Paginated<T> {
   items: T[];
@@ -81,8 +87,7 @@ export const crmApi = {
         "contacts/duplicate-check",
         criteria,
       ),
-    /** Absorbs `duplicate_id` into contact `id`; the duplicate is deleted. */
-    merge: (id: number, body: { duplicate_id: number }) =>
+    merge: (id: number, body: MergeBody) =>
       apiClient.post<Contact>(`contacts/${id}/merge`, body),
   },
   organizations: {
@@ -95,6 +100,13 @@ export const crmApi = {
       apiClient.patch<Organization>(`organizations/${id}`, body),
     remove: (id: number) =>
       apiClient.delete<{ deleted: boolean }>(`organizations/${id}`),
+    duplicateCheck: (criteria: Record<string, unknown>) =>
+      apiClient.post<DuplicateCandidate[]>(
+        "organizations/duplicate-check",
+        criteria,
+      ),
+    merge: (id: number, body: MergeBody) =>
+      apiClient.post<Organization>(`organizations/${id}/merge`, body),
   },
   leads: {
     list: (query?: QueryParams) => getPaginated<Lead>("leads", query),

@@ -45,6 +45,20 @@ function stubApi(options: { candidates?: unknown[]; mergeFails?: boolean }) {
       requested.push({ call: (init?.method ?? "GET") + " " + path, body });
       if (path === "contacts/duplicate-check")
         return json({ data: candidates, meta: { count: candidates.length } });
+      if (path === "contacts/2")
+        return json({
+          data: {
+            id: 2,
+            first_name: "Ana María",
+            last_name: "Pérez",
+            email: "ANA@example.test",
+            phone: "+593991111111",
+            status: null,
+            owner_id: null,
+            owner: null,
+          },
+          meta: [],
+        });
       if (path === "contacts/7/merge") {
         if (options.mergeFails)
           return json(
@@ -72,6 +86,15 @@ function renderDuplicates() {
       <ContactDuplicates contact={contact} />
     </QueryClientProvider>,
   );
+}
+
+/** The dialog's button, once the duplicate has been loaded for comparison. */
+async function mergeButton() {
+  const button = within(screen.getByRole("dialog")).getByRole("button", {
+    name: "Fusionar",
+  });
+  await vi.waitFor(() => expect(button).toBeEnabled());
+  return button;
 }
 
 function signIn(permissions: string[]) {
@@ -138,11 +161,7 @@ describe("ContactDuplicates", () => {
     expect(requested.map((entry) => entry.call)).not.toContain(
       "POST contacts/7/merge",
     );
-    await userEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Fusionar",
-      }),
-    );
+    await userEvent.click(await mergeButton());
 
     await vi.waitFor(() =>
       expect(screen.queryByText("Ana María Pérez")).not.toBeInTheDocument(),
@@ -153,6 +172,44 @@ describe("ContactDuplicates", () => {
     });
   });
 
+  it("asks which value to keep where the two contacts differ", async () => {
+    signIn(["contacts.view", "duplicates.manage"]);
+    const requested = stubApi({});
+    renderDuplicates();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Fusionar Ana María Pérez" }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    const phone = within(
+      await dialog.findByRole("group", { name: "Teléfono" }),
+    );
+    expect(
+      phone.getByRole("radio", { name: "Este contacto: +593990000000" }),
+    ).toBeChecked();
+    expect(
+      dialog.queryByRole("group", { name: "Correo" }),
+    ).not.toBeInTheDocument();
+    expect(
+      dialog.queryByRole("group", { name: "Apellido" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      phone.getByRole("radio", { name: "Duplicado: +593991111111" }),
+    );
+    await userEvent.click(await mergeButton());
+
+    await vi.waitFor(() =>
+      expect(requested).toContainEqual({
+        call: "POST contacts/7/merge",
+        body: {
+          duplicate_id: 2,
+          field_overrides: { phone: "+593991111111" },
+        },
+      }),
+    );
+  });
+
   it("keeps the duplicate listed and explains when the merge is rejected", async () => {
     signIn(["contacts.view", "duplicates.manage"]);
     stubApi({ mergeFails: true });
@@ -161,11 +218,7 @@ describe("ContactDuplicates", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "Fusionar Ana María Pérez" }),
     );
-    await userEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Fusionar",
-      }),
-    );
+    await userEvent.click(await mergeButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You do not have permission to merge duplicate records.",
