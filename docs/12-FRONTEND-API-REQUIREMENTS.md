@@ -1,206 +1,122 @@
 # Vantex CRM — Requisitos API para frontend
 
-Este documento registra dependencias que no están disponibles en API Orbit. Son propuestas de contrato, no endpoints implementados por el frontend. Todos los recursos internos deben usar IDs numéricos; los enlaces públicos deben usar tokens opacos firmados o de un solo uso, nunca un slug como identificador del sistema.
+Actualizado: 2026-10-09, contra la rama `dev` de API Orbit (API-1 a API-7.2).
 
-## Customer 360 y timeline
+Este documento registra dependencias que no están disponibles en API Orbit. Son propuestas de contrato, no endpoints implementados por el frontend. Todos los recursos internos deben usar IDs numéricos; los enlaces públicos usan el UUID `public_id` o tokens opacos, nunca un slug como identificador del sistema.
 
-### GET /api/v1/activities
+## Propuestas anteriores ya resueltas
 
-Estado actual: existe, pero no permite filtrar por registro relacionado.
+La versión del 2026-09-01 pedía los contratos siguientes. El API los entregó, en varios casos con una ruta distinta a la propuesta. El frontend debe usar la ruta real.
 
-Propuesta aditiva:
+| Propuesta original | Ruta real en el API |
+|---|---|
+| `GET /activities?activityable_type=…` para el timeline | `GET /contacts/{id}/timeline` |
+| Datos agregados para Customer 360 | `GET /contacts/{id}/overview` |
+| `GET /search` | `GET /search` |
+| `/views` | `/saved-views` |
+| `/conversations` y mensajes | `/conversations`, `/conversations/{id}/messages`, `/inboxes`, `/canned-responses` |
+| `POST /conversations/{id}/assign` | `PATCH /conversations/{id}/assign`, `PATCH …/status`, `PATCH …/read` |
+| `/notifications` y lectura | `/notifications`, `PATCH /notifications/{id}/read`, `PATCH /notifications/read-all`, `/notification-preferences` |
+| `/forms`, campos y envíos | `/forms`, `/forms/{id}/submissions` |
+| `/sequences` | `/sequences`, `/sequence-enrollments` |
+| `/meeting-types` y disponibilidad | `/meeting-types`, `/meeting-bookings`; disponibilidad pública en `/public/meetings/{publicId}/availability` |
+| `/products`, `/price-lists`, `/quotes` | Igual, más `/cpq`, `/bundles`, `/taxes`, `/discounts`, `/currencies` |
+| `POST /quotes/{id}/send`, `approve`, `accept`, `GET …/pdf` | Igual, más `submit`, `revise`, `duplicate`, `cancel`, `reject` y `sync-erp` |
+| `/forecast`, `/goals`, `/analytics/sales` | `/forecast`, `/goals`, `/sales-analytics` |
+| `/tickets` y `GET /tickets/{id}/sla` | Igual, más `/support/*` para agentes, colas, categorías y políticas SLA |
+| `/knowledge/articles` | Igual, más categorías, etiquetas, versiones y publicación |
+| `POST /data-quality/merge` | `POST /contacts/{id}/merge` y `POST /companies/{id}/merge`, con `duplicate-check` previo |
 
-~~~
-GET /api/v1/activities?activityable_type=contact&activityable_id=123
-GET /api/v1/activities?types=email,note&cursor=...
-~~~
+## Contratos que siguen faltando
 
-Respuesta esperada:
+### Archivos por registro
 
-~~~json
-{
-  "data": [],
-  "meta": {
-    "next_cursor": null,
-    "request_id": "req_..."
-  }
-}
-~~~
-
-Motivo: evitar descargar todo el tenant para construir un timeline y permitir infinite loading.
-
-### GET /api/v1/relations
-
-Estado actual: existe con filtros genéricos.
-
-Propuesta de respuesta enriquecida opcional:
-
-~~~json
-{
-  "data": [
-    {
-      "id": 1,
-      "relation_type": "decision_maker",
-      "from_type": "contact",
-      "from_id": "123",
-      "to_type": "deal",
-      "to_id": "44",
-      "from": { "type": "contact", "id": "123", "label": "Ana Pérez" },
-      "to": { "type": "deal", "id": "44", "label": "Renovación" }
-    }
-  ]
-}
-~~~
-
-Motivo: presentar relaciones en Customer 360 sin consultas adicionales ambiguas.
-
-### GET /api/v1/files
-
-Estado actual: existe, pero no documenta filtros por relación.
-
-Propuesta:
+Estado actual: `GET /files` no filtra por registro relacionado.
 
 ~~~
 GET /api/v1/files?related_type=contact&related_id=123
 ~~~
 
-Motivo: mostrar documentos asociados de forma eficiente y tenant-safe.
+Motivo: listar documentos desde fichas distintas del contacto (el overview del contacto ya incluye sus documentos).
 
-## Búsqueda, vistas y tablas
+### Automatizaciones: historial de ejecuciones
 
-### GET /api/v1/search
-
-Request:
+Estado actual: `/automations` expone solo el CRUD.
 
 ~~~
-GET /api/v1/search?q=ana&types=contacts,organizations,deals,tasks&limit=8
+GET  /api/v1/automations/{id}/runs
+GET  /api/v1/automations/{id}/runs/{runId}
+POST /api/v1/automations/{id}/runs/{runId}/retry
 ~~~
 
-Response:
+Motivo: mostrar resultado, error y reintentos de cada ejecución.
 
-~~~json
-{
-  "data": {
-    "contacts": [],
-    "organizations": [],
-    "deals": [],
-    "tasks": [],
-    "custom_records": []
-  },
-  "meta": { "request_id": "req_..." }
-}
-~~~
+### Webhooks: entregas y secreto
 
-Motivo: reemplazar búsquedas paralelas del navegador y soportar ranking/tenant/permissions en el backend.
-
-### Saved views
-
-Se requiere un recurso genérico:
+Estado actual: `/webhooks/endpoints` expone solo el CRUD.
 
 ~~~
-GET    /api/v1/views?resource=contacts
-POST   /api/v1/views
-PATCH  /api/v1/views/{id}
-DELETE /api/v1/views/{id}
-~~~
-
-Payload mínimo:
-
-~~~json
-{
-  "resource": "contacts",
-  "name": "Mis contactos",
-  "filters": {},
-  "columns": ["name", "email", "status"],
-  "sort": [{ "field": "updated_at", "direction": "desc" }],
-  "visibility": "private"
-}
-~~~
-
-## Inbox y realtime
-
-Recursos requeridos:
-
-~~~
-GET/POST        /api/v1/conversations
-GET/POST        /api/v1/conversations/{id}/messages
-PATCH           /api/v1/conversations/{id}
-POST            /api/v1/conversations/{id}/assign
-POST            /api/v1/conversations/{id}/notes
-GET             /api/v1/conversations/{id}/events
-GET             /api/v1/notifications
-PATCH           /api/v1/notifications/{id}/read
-POST            /api/v1/notifications/read-all
-~~~
-
-Eventos Reverb/Echo mínimos:
-
-~~~
-conversation.message.created
-conversation.updated
-conversation.assigned
-notification.created
-~~~
-
-## Formularios, sequences y meetings
-
-~~~
-GET/POST/PATCH/DELETE /api/v1/forms
-GET/POST               /api/v1/forms/{id}/fields
-GET                    /api/v1/forms/{id}/submissions
-GET/POST/PATCH/DELETE  /api/v1/sequences
-GET/POST/PATCH/DELETE  /api/v1/meeting-types
-GET                    /api/v1/meeting-types/{id}/availability
-POST                   /api/v1/meeting-bookings
-~~~
-
-Los enlaces públicos deben recibir un token opaco con expiración y alcance limitado.
-
-## Products, quotes y ERP
-
-~~~
-GET/POST/PATCH/DELETE  /api/v1/products
-GET/POST/PATCH/DELETE  /api/v1/price-lists
-GET/POST/PATCH/DELETE  /api/v1/quotes
-POST                   /api/v1/quotes/{id}/send
-POST                   /api/v1/quotes/{id}/approve
-POST                   /api/v1/quotes/{id}/accept
-GET                    /api/v1/quotes/{id}/pdf
-GET                    /api/v1/erp/customer-summary/{contactId}
-POST                   /api/v1/deals/{id}/sales-order
-~~~
-
-Requiere policies, auditoría, idempotencia y enlaces públicos sin IDs internos expuestos.
-
-## Forecast, service, quality y builders
-
-Contratos requeridos:
-
-~~~
-GET /api/v1/forecast
-GET /api/v1/goals
-GET /api/v1/analytics/sales
-GET/POST/PATCH/DELETE /api/v1/tickets
-GET /api/v1/tickets/{id}/sla
-GET/POST/PATCH/DELETE /api/v1/knowledge/articles
-GET /api/v1/data-quality
-POST /api/v1/data-quality/merge
-GET/POST/PATCH/DELETE /api/v1/dashboards
-GET/POST/PATCH/DELETE /api/v1/reports
-GET/POST/PATCH/DELETE /api/v1/api-keys
-~~~
-
-Cada contrato debe especificar paginación, permisos, límites, filtros, auditoría, errores 422 y aislamiento tenant antes de crear la pantalla.
-
-## Integrations
-
-El frontend actual consume el catálogo y operaciones básicas existentes. Para terminar conectores reales sin ocultar estados se necesitan:
-
-~~~
-GET  /api/v1/integrations/{id}/auth-url
-GET  /api/v1/integrations/{id}/sync-status
 GET  /api/v1/webhooks/endpoints/{id}/deliveries
 POST /api/v1/webhooks/endpoints/{id}/rotate-secret
 ~~~
 
-Los secretos nunca deben regresar en list/show. OAuth debe completar el flujo en backend y devolver solo estado/metadata segura.
+Los secretos nunca deben regresar en list/show.
+
+### Integraciones: OAuth y estado de sincronización
+
+~~~
+GET /api/v1/integrations/{id}/auth-url
+GET /api/v1/integrations/{id}/sync-status
+~~~
+
+OAuth debe completar el flujo en backend y devolver solo estado y metadata segura.
+
+### Módulos habilitados, flags y límites de plan
+
+~~~
+GET /api/v1/tenant/features
+~~~
+
+Respuesta esperada: módulos habilitados para el tenant, flags (`crm.whatsapp.enabled`, `crm.service.enabled`…) y uso frente a límite del plan. Motivo: condicionar la navegación sin hardcodear planes en componentes.
+
+### Panel de servicio
+
+~~~
+GET /api/v1/support/metrics
+~~~
+
+Tickets abiertos, urgentes, en riesgo de SLA, incumplidos, y tiempos medios de respuesta y resolución, con filtros por cola y periodo.
+
+### Data Quality Center
+
+~~~
+GET /api/v1/data-quality
+~~~
+
+Conteos agregados: duplicados probables, emails y teléfonos inválidos, registros incompletos, sin propietario y oportunidades estancadas. La fusión ya existe.
+
+### ERP: datos del cliente
+
+~~~
+GET  /api/v1/erp/customer-summary/{contactId}
+POST /api/v1/deals/{id}/sales-order
+~~~
+
+Hoy solo se expone el estado de sincronización (`/erp/syncs`).
+
+### Acciones masivas
+
+Asignar propietario, etiquetar, actualizar un campo, añadir a secuencia y eliminar sobre una selección de registros. Requiere confirmación en las destructivas y respuesta con resultado por registro.
+
+### Fases de backend pendientes
+
+Sin contrato todavía; dependen de fases completas del API:
+
+- Portal de clientes (API-7.3, en desarrollo), Customer Success y encuestas NPS/CSAT.
+- Dashboards y reportes guardados.
+- API keys y apps de desarrollador (API-9).
+- Layouts, reglas de validación, campos fórmula y plantillas por industria (API-8).
+- Plantillas de documentos.
+- Vantex AI (API-10).
+
+Cada contrato debe especificar paginación, permisos, límites, filtros, auditoría, errores 422 y aislamiento tenant antes de crear la pantalla.
