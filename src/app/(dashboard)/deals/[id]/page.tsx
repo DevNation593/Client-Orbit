@@ -11,6 +11,7 @@ import {
   useUpdateDeal,
 } from "@/hooks/use-crm";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { RecordTags } from "@/features/tags/record-tags";
 import { PageHeader } from "@/components/common/page-header";
 import { RecordSummary } from "@/components/common/record-summary";
 import { ErrorState, ListSkeleton } from "@/components/common/async-state";
@@ -147,6 +148,9 @@ export default function DealDetailPage() {
                       No hay campos personalizados.
                     </p>
                   )}
+                </div>
+                <div className="sm:col-span-2">
+                  <RecordTags entityId={item.id} entityType="deal" />
                 </div>
               </CardContent>
             </Card>

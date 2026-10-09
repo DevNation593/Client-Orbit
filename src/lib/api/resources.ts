@@ -18,6 +18,8 @@ import type {
   Pipeline,
   Relation,
   RelationOptionGroup,
+  Tag,
+  TagAssignment,
   Task,
   TenantInvitation,
   UserMembership,
@@ -272,6 +274,17 @@ export const crmApi = {
   exports: {
     create: (body: unknown) => apiClient.post<ExportBatch>("exports", body),
     get: (id: number) => apiClient.get<ExportBatch>(`exports/${id}`),
+  },
+  tags: {
+    list: (query?: QueryParams) => getPaginated<Tag>("tags", query),
+    create: (body: { name: string; color?: string | null }) =>
+      apiClient.post<Tag>("tags", body),
+    assign: (tagId: number, body: { entity_type: string; entity_id: number }) =>
+      apiClient.post<TagAssignment>(`tags/${tagId}/assignments`, body),
+    unassign: (tagId: number, assignmentId: number) =>
+      apiClient.delete<{ deleted: boolean }>(
+        `tags/${tagId}/assignments/${assignmentId}`,
+      ),
   },
   notifications: {
     list: (query?: QueryParams) =>

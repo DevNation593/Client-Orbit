@@ -23,6 +23,7 @@ import {
   useUpdateContact,
 } from "@/hooks/use-crm";
 import { timelineEventToEntry } from "@/features/customer360/timeline";
+import { RecordTags } from "@/features/tags/record-tags";
 import { formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/common/page-header";
 import { RecordSummary } from "@/components/common/record-summary";
@@ -210,6 +211,9 @@ export default function ContactDetailPage() {
                       No hay campos adicionales.
                     </p>
                   )}
+                </div>
+                <div className="sm:col-span-2">
+                  <RecordTags entityId={item.id} entityType="contact" />
                 </div>
               </CardContent>
             </Card>

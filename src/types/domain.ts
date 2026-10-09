@@ -359,6 +359,22 @@ export interface AuditLog {
   created_at?: string;
 }
 
+export interface Tag {
+  id: number;
+  name: string;
+  color: string | null;
+  description?: string | null;
+  assignments_count?: number;
+}
+
+export interface TagAssignment {
+  id: number;
+  tag_id: number;
+  taggable_type: string;
+  taggable_id: number;
+  tag?: Pick<Tag, "id" | "name" | "color">;
+}
+
 export type BatchStatus = "queued" | "processing" | "completed" | "failed";
 
 export interface ImportBatch {
