@@ -26,6 +26,7 @@ La versión del 2026-09-01 pedía los contratos siguientes. El API los entregó,
 | `/tickets` y `GET /tickets/{id}/sla` | Igual, más `/support/*` para agentes, colas, categorías y políticas SLA |
 | `/knowledge/articles` | Igual, más categorías, etiquetas, versiones y publicación |
 | `POST /data-quality/merge` | `POST /contacts/{id}/merge` y `POST /companies/{id}/merge`, con `duplicate-check` previo |
+| Autorización de canales privados con token | `POST /broadcasting/auth` bajo `/api/v1` con `auth:sanctum` (antes solo aceptaba sesión web) |
 
 ## Contratos que siguen faltando
 
@@ -34,6 +35,16 @@ La versión del 2026-09-01 pedía los contratos siguientes. El API los entregó,
 Estado actual: `GET /search` cubre contactos, empresas, leads, oportunidades, documentos y registros personalizados, pero no tareas. El frontend las consulta aparte con `GET /tasks?search=`.
 
 Propuesta: aceptar `tasks` en `types[]` y devolverlas con el mismo formato y ranking.
+
+### Listados: orden por score y por valor
+
+Estado actual: `sort` solo acepta los campos filtrables de cada listado y `created_at`. `GET /leads?sort=score` y `GET /deals?sort=value` responden 422, así que esas dos columnas no se pueden ordenar. Tampoco `updated_at` en ningún listado.
+
+Propuesta: admitir `score` en leads, `value` y `expected_close_date` en oportunidades y `updated_at` en todos.
+
+### Vistas guardadas: `is_default` al crear
+
+Estado actual: la respuesta de `POST /saved-views` no incluye `is_default` cuando no se envía (sí aparece en `GET` y `PATCH`). El frontend no depende de ello porque recarga el listado, pero el objeto debería ser el mismo en las tres respuestas.
 
 ### Etiquetas: quitar una asignación por registro
 
@@ -107,6 +118,8 @@ GET /api/v1/tenant/features
 ~~~
 
 Respuesta esperada: módulos habilitados para el tenant, flags (`crm.whatsapp.enabled`, `crm.service.enabled`…) y uso frente a límite del plan. Motivo: condicionar la navegación sin hardcodear planes en componentes.
+
+Mientras tanto el frontend habilita módulos por despliegue con `NEXT_PUBLIC_ENABLED_MODULES`, igual para todos los tenants.
 
 ### Panel de servicio
 

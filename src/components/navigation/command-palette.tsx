@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hasPermission } from "@/components/common/can";
 import { useAuthStore } from "@/lib/auth-store";
+import { isPathEnabled } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -162,12 +163,14 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const availableCommands = useMemo(
     () =>
-      commands.filter((command) =>
-        hasPermission(
-          command.permission ?? "",
-          user?.permissions,
-          user?.is_platform_admin,
-        ),
+      commands.filter(
+        (command) =>
+          isPathEnabled(command.href) &&
+          hasPermission(
+            command.permission ?? "",
+            user?.permissions,
+            user?.is_platform_admin,
+          ),
       ),
     [user?.is_platform_admin, user?.permissions],
   );
@@ -193,16 +196,13 @@ export function CommandPalette() {
       } else if (event.key === "ArrowDown") {
         event.preventDefault();
         setActiveIndex((current) =>
-          filteredCommands.length
-            ? (current + 1) % filteredCommands.length
-            : 0,
+          filteredCommands.length ? (current + 1) % filteredCommands.length : 0,
         );
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
         setActiveIndex((current) =>
           filteredCommands.length
-            ? (current - 1 + filteredCommands.length) %
-                filteredCommands.length
+            ? (current - 1 + filteredCommands.length) % filteredCommands.length
             : 0,
         );
       } else if (event.key === "Enter") {

@@ -23,8 +23,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
+import { isPathEnabled } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
-import { Can } from "@/components/common/can";
+import { Can, hasPermission } from "@/components/common/can";
 
 const primaryNavigation = [
   { label: "Resumen", href: "/", icon: Gauge },
@@ -226,19 +227,32 @@ function NavSection({
   pathname: string;
   onNavigate: () => void;
 }) {
+  const user = useAuthStore((state) => state.user);
+  // An entry needs both its module enabled and the permission to see it.
+  const visibleItems = items.filter(
+    (item) =>
+      isPathEnabled(item.href) &&
+      (!item.permission ||
+        hasPermission(
+          item.permission,
+          user?.permissions,
+          user?.is_platform_admin,
+        )),
+  );
+  if (!visibleItems.length) return null;
   return (
     <div className="mb-6">
       <p className="text-muted mb-2 px-3 text-[10px] font-bold tracking-[0.15em] uppercase">
         {label}
       </p>
       <nav className="space-y-1">
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const active =
             item.href === "/"
               ? pathname === "/"
               : pathname.startsWith(item.href);
-          const link = (
+          return (
             <Link
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
@@ -247,6 +261,7 @@ function NavSection({
                   : "text-muted hover:text-foreground hover:bg-slate-50",
               )}
               href={item.href}
+              key={item.href}
               onClick={onNavigate}
             >
               <Icon size={18} />
@@ -255,13 +270,6 @@ function NavSection({
                 <span className="bg-brand ml-auto h-1.5 w-1.5 rounded-full" />
               ) : null}
             </Link>
-          );
-          return item.permission ? (
-            <Can fallback={null} key={item.href} permission={item.permission}>
-              {link}
-            </Can>
-          ) : (
-            <span key={item.href}>{link}</span>
           );
         })}
       </nav>

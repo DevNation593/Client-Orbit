@@ -37,7 +37,7 @@ export function Breadcrumbs() {
   const items = segments.map((segment, index) => ({
     label: /^\d+$/.test(segment)
       ? "Detalle"
-      : labels[segment] ?? titleCase(segment),
+      : (labels[segment] ?? titleCase(segment)),
     href: "/" + segments.slice(0, index + 1).join("/"),
   }));
 

@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/auth-store";
+import { isPathEnabled } from "@/lib/modules";
+import { EmptyState } from "@/components/common/async-state";
 import { Sidebar } from "./sidebar";
 import { Header } from "./header";
 import { Breadcrumbs } from "./breadcrumbs";
@@ -37,7 +39,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         <Header onMenu={() => setSidebarOpen(true)} />
         <main className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
           <Breadcrumbs />
-          {children}
+          {isPathEnabled(pathname) ? (
+            children
+          ) : (
+            <EmptyState
+              description="Esta sección no está habilitada en este entorno."
+              title="Módulo no disponible"
+            />
+          )}
         </main>
       </div>
     </div>

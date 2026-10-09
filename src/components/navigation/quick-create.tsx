@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { hasPermission } from "@/components/common/can";
 import { useAuthStore } from "@/lib/auth-store";
+import { isPathEnabled } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 
 const options = [
@@ -51,8 +52,14 @@ export function QuickCreate() {
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const visibleOptions = options.filter((option) =>
-    hasPermission(option.permission, user?.permissions, user?.is_platform_admin),
+  const visibleOptions = options.filter(
+    (option) =>
+      isPathEnabled(option.href) &&
+      hasPermission(
+        option.permission,
+        user?.permissions,
+        user?.is_platform_admin,
+      ),
   );
 
   useEffect(() => {
