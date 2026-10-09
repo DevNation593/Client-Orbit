@@ -6,8 +6,9 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { crmApi } from "@/lib/api/resources";
+import { crmApi, type Paginated } from "@/lib/api/resources";
 import type { QueryParams } from "@/types/api";
+import type { Deal } from "@/types/domain";
 
 export const queryKeys = {
   contacts: (query?: QueryParams) => ["contacts", query ?? {}] as const,
@@ -291,6 +292,43 @@ export function useUpdateDeal() {
 }
 export function useDeleteDeal() {
   return useInvalidateMutation(crmApi.deals.remove, ["deals"]);
+}
+/**
+ * Moves a deal to another stage showing the result at once; if the API
+ * rejects the change, every deal list goes back to what it had.
+ */
+export function useMoveDeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ deal, stageId }: { deal: Deal; stageId: number }) =>
+      crmApi.deals.update(deal.id, { stage_id: stageId }),
+    onMutate: async ({ deal, stageId }) => {
+      await queryClient.cancelQueries({ queryKey: ["deals"] });
+      const previous = queryClient.getQueriesData<Paginated<Deal>>({
+        queryKey: ["deals"],
+      });
+      queryClient.setQueriesData<Paginated<Deal>>(
+        { queryKey: ["deals"] },
+        (current) =>
+          // ["deals", id] holds a single deal, not a list.
+          current && "items" in current
+            ? {
+                ...current,
+                items: current.items.map((item) =>
+                  item.id === deal.id ? { ...item, stage_id: stageId } : item,
+                ),
+              }
+            : current,
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      context?.previous.forEach(([queryKey, data]) =>
+        queryClient.setQueryData(queryKey, data),
+      );
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ["deals"] }),
+  });
 }
 export function useCreatePipeline() {
   return useInvalidateMutation(crmApi.pipelines.create, ["pipelines"]);

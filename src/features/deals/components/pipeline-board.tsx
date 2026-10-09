@@ -32,6 +32,7 @@ export function PipelineBoard({
           );
           return (
             <section
+              aria-label={stage.name}
               className="w-[286px] shrink-0 rounded-2xl bg-slate-100/80 p-3"
               key={stage.id}
               onDragOver={(event) => event.preventDefault()}
