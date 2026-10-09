@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { notificationHref, type ApiNotification } from "./notifications";
+import {
+  notificationHref,
+  preferenceEnabled,
+  type ApiNotification,
+} from "./notifications";
 
 const origin = "http://localhost:3000";
 
@@ -85,5 +89,60 @@ describe("notificationHref", () => {
         origin,
       ),
     ).toBe("/leads/3");
+  });
+});
+
+describe("preferenceEnabled", () => {
+  const defaults = { in_app: true, email: false };
+  const row = (event: string, channel: string, enabled: boolean) => ({
+    event,
+    channel,
+    enabled,
+    delivery: "immediate" as const,
+  });
+
+  it("falls back to the default of the channel", () => {
+    expect(preferenceEnabled([], defaults, "lead.assigned", "in_app")).toBe(
+      true,
+    );
+    expect(preferenceEnabled([], defaults, "lead.assigned", "email")).toBe(
+      false,
+    );
+  });
+
+  it("follows what the user chose for the event", () => {
+    expect(
+      preferenceEnabled(
+        [row("lead.assigned", "in_app", false)],
+        defaults,
+        "lead.assigned",
+        "in_app",
+      ),
+    ).toBe(false);
+  });
+
+  it("applies a choice made for every event unless the event has its own", () => {
+    const preferences = [
+      row("*", "email", true),
+      row("task.overdue", "email", false),
+    ];
+
+    expect(
+      preferenceEnabled(preferences, defaults, "lead.assigned", "email"),
+    ).toBe(true);
+    expect(
+      preferenceEnabled(preferences, defaults, "task.overdue", "email"),
+    ).toBe(false);
+  });
+
+  it("shows an event delivered as a digest as enabled", () => {
+    expect(
+      preferenceEnabled(
+        [{ ...row("lead.assigned", "email", true), delivery: "daily" }],
+        defaults,
+        "lead.assigned",
+        "email",
+      ),
+    ).toBe(true);
   });
 });

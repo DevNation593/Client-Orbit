@@ -8,12 +8,15 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { useDeleteLead, useLeads } from "@/hooks/use-crm";
 import { formatDate } from "@/lib/utils";
+import type { Lead } from "@/types/domain";
 import { PageHeader } from "@/components/common/page-header";
 import { Avatar } from "@/components/common/avatar";
 import { ErrorState } from "@/components/common/async-state";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Can } from "@/components/common/can";
 import { ConvertLeadDialog } from "@/features/leads/components/convert-dialog";
+import { SavedViewsMenu } from "@/features/saved-views/saved-views-menu";
+import { useListView } from "@/features/saved-views/use-list-view";
 import {
   DataTable,
   type DataTableColumn,
@@ -23,24 +26,26 @@ import { Pagination } from "@/components/tables/pagination";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 
+// Column key to the field `GET /leads` accepts in `sort`; the score is not one.
+const SORT_FIELDS = {
+  name: "first_name",
+  source: "source",
+  status: "status",
+  created_at: "created_at",
+};
+
 export default function LeadsPage() {
   const router = useRouter();
   const [search, setSearch] = usePersistedState("leads.search", "");
-  const [page, setPage] = useState(1);
   const [convertId, setConvertId] = useState<number | null>(null);
   const [removeId, setRemoveId] = useState<number | null>(null);
-  const leads = useLeads({
-    page,
-    per_page: 10,
-    search: useDebouncedValue(search),
-  });
+  const debouncedSearch = useDebouncedValue(search);
   const remove = useDeleteLead();
-  const columns: DataTableColumn<
-    NonNullable<typeof leads.data>["items"][number]
-  >[] = [
+  const columns: DataTableColumn<Lead>[] = [
     {
       key: "name",
       header: "Lead",
+      sortable: true,
       render: (lead) => (
         <div className="flex items-center gap-3">
           <Avatar
@@ -67,13 +72,13 @@ export default function LeadsPage() {
     {
       key: "source",
       header: "Origen",
+      sortable: true,
       render: (lead) =>
         lead.source ?? <span className="text-muted">No definido</span>,
     },
     {
       key: "score",
       header: "Score",
-      sortable: true,
       render: (lead) => (
         <span className="inline-flex items-center gap-1 font-bold">
           <Star className="text-amber-500" fill="currentColor" size={14} />
@@ -84,11 +89,13 @@ export default function LeadsPage() {
     {
       key: "status",
       header: "Estado",
+      sortable: true,
       render: (lead) => <StatusBadge value={lead.status} />,
     },
     {
       key: "created_at",
       header: "Creado",
+      sortable: true,
       render: (lead) => (
         <span className="text-muted">{formatDate(lead.created_at)}</span>
       ),
@@ -126,6 +133,17 @@ export default function LeadsPage() {
       ),
     },
   ];
+  const list = useListView("leads", {
+    columns: columns.map((column) => column.key),
+    sortFields: SORT_FIELDS,
+  });
+  const { setPage } = list;
+  const leads = useLeads({
+    page: list.page,
+    per_page: 10,
+    search: debouncedSearch,
+    ...list.query,
+  });
   return (
     <>
       <PageHeader
@@ -152,13 +170,19 @@ export default function LeadsPage() {
         }}
         search={search}
         placeholder="Buscar por nombre, correo u origen…"
-      />
+        activeFilters={list.filters.length}
+        onClearFilters={list.clearFilters}
+      >
+        <SavedViewsMenu entityType="leads" {...list.views} />
+      </ListToolbar>
       {leads.isError ? (
         <ErrorState onRetry={() => void leads.refetch()} />
       ) : (
         <>
           <DataTable
-            preferenceKey="leads"
+            {...list.sorting}
+            columnVisibility={list.columnVisibility}
+            onColumnVisibilityChange={list.setColumnVisibility}
             columns={columns}
             emptyDescription="Añade un lead para empezar a trabajar tu embudo."
             emptyTitle="No hay leads"

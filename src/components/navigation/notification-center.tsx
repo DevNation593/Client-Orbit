@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Bell, Check, Inbox } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { hasPermission } from "@/components/common/can";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,11 +12,17 @@ import {
 } from "@/features/notifications/notifications";
 import { crmApi } from "@/lib/api/resources";
 import { useAuthStore } from "@/lib/auth-store";
+import {
+  connectRealtime,
+  realtimeEnabled,
+  subscribeToNotifications,
+} from "@/lib/realtime";
 import { formatRelativeDate } from "@/lib/utils";
 
 const queryKey = ["notifications"] as const;
-// Until the realtime channel is wired, the badge is refreshed on a timer.
-const UNREAD_REFRESH_MS = 60_000;
+// The badge is refreshed on a timer: the only source of updates without
+// realtime, and a safety net for a dropped socket with it.
+const UNREAD_REFRESH_MS = realtimeEnabled ? 300_000 : 60_000;
 
 export function NotificationCenter() {
   const user = useAuthStore((state) => state.user);
@@ -27,12 +33,39 @@ export function NotificationCenter() {
       user.permissions,
       user.is_platform_admin,
     );
-  return allowed ? <NotificationPanel /> : null;
+  const tenantId = useAuthStore((state) => state.tenant?.id);
+  return allowed && tenantId ? (
+    <NotificationPanel tenantId={tenantId} userId={user.id} />
+  ) : null;
 }
 
-function NotificationPanel() {
+function NotificationPanel({
+  userId,
+  tenantId,
+}: {
+  userId: number;
+  tenantId: number;
+}) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let unmounted = false;
+    void connectRealtime().then((client) => {
+      if (!client) return;
+      stop = subscribeToNotifications(client, {
+        userId,
+        tenantId,
+        onNotification: () => void queryClient.invalidateQueries({ queryKey }),
+      });
+      // The component went away while the socket was opening.
+      if (unmounted) stop();
+    });
+    return () => {
+      unmounted = true;
+      stop?.();
+    };
+  }, [queryClient, tenantId, userId]);
   const unreadCount = useQuery({
     queryKey: [...queryKey, "unread-count"],
     queryFn: crmApi.notifications.unreadCount,
@@ -89,17 +122,26 @@ function NotificationPanel() {
                   {unread ? `${unread} sin leer` : "Todo al día"}
                 </p>
               </div>
-              {unread ? (
-                <button
-                  className="text-brand text-xs font-bold"
-                  disabled={markAllRead.isPending}
-                  onClick={() => markAllRead.mutate()}
-                  type="button"
+              <div className="flex items-center gap-3">
+                {unread ? (
+                  <button
+                    className="text-brand text-xs font-bold"
+                    disabled={markAllRead.isPending}
+                    onClick={() => markAllRead.mutate()}
+                    type="button"
+                  >
+                    <Check className="mr-1 inline" size={13} />
+                    Marcar todas
+                  </button>
+                ) : null}
+                <Link
+                  className="text-muted hover:text-foreground text-xs font-bold"
+                  href="/profile#notificaciones"
+                  onClick={() => setOpen(false)}
                 >
-                  <Check className="mr-1 inline" size={13} />
-                  Marcar todas
-                </button>
-              ) : null}
+                  Preferencias
+                </Link>
+              </div>
             </div>
             {list.isError ? (
               <p className="text-danger flex items-center gap-2 p-3 text-xs">

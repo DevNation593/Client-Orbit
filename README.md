@@ -8,6 +8,11 @@ Frontend independiente para el CRM SaaS multiindustria. Está construido con Nex
 2. Instala dependencias con `npm install`.
 3. Arranca `npm run dev`.
 
+Variables opcionales:
+
+- `NEXT_PUBLIC_REVERB_APP_KEY`, `NEXT_PUBLIC_REVERB_HOST`, `NEXT_PUBLIC_REVERB_PORT` y `NEXT_PUBLIC_REVERB_SCHEME` conectan el centro de notificaciones al servidor Reverb del API. Sin clave, las notificaciones se refrescan por temporizador.
+- `NEXT_PUBLIC_ENABLED_MODULES` limita los módulos visibles a una lista separada por comas (`contacts,leads,deals…`). Vacía, se muestran todos. Los nombres válidos están en `src/lib/modules.ts`.
+
 `API_URL` apunta al backend Laravel. Las llamadas del navegador pasan por `/api/backend/[...path]`, que añade el token Sanctum desde una cookie HttpOnly y el tenant activo como `X-Tenant-ID`. El token no se guarda en `localStorage`.
 
 Las entidades personalizadas y sus registros se navegan y consultan mediante IDs numéricos: `/entities/[entityId]` y `/entities/[entityId]/[recordId]`. No se expone ningún identificador textual alternativo.

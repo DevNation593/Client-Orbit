@@ -8,6 +8,7 @@ import { useContacts, useDeleteContact } from "@/hooks/use-crm";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { formatDate } from "@/lib/utils";
+import type { Contact } from "@/types/domain";
 import { PageHeader } from "@/components/common/page-header";
 import { Avatar } from "@/components/common/avatar";
 import { ErrorState } from "@/components/common/async-state";
@@ -20,53 +21,20 @@ import {
 } from "@/components/tables/data-table";
 import { ListToolbar } from "@/components/tables/list-toolbar";
 import { Pagination } from "@/components/tables/pagination";
-import {
-  filtersToQuery,
-  viewColumnVisibility,
-  type SavedViewFilter,
-} from "@/features/saved-views/saved-views";
 import { SavedViewsMenu } from "@/features/saved-views/saved-views-menu";
+import { useListView } from "@/features/saved-views/use-list-view";
 import { Button } from "@/components/ui/button";
 
-// Stable defaults: usePersistedState resets when its initial value changes.
-const NO_FILTERS: SavedViewFilter[] = [];
-const ALL_COLUMNS_VISIBLE: Record<string, boolean> = {};
-
-function isStatusFilter(filter: SavedViewFilter) {
-  return filter.field === "status" && filter.operator === "eq";
-}
+// Column key to the field `GET /contacts` accepts in `sort`.
+const SORT_FIELDS = { name: "first_name", created_at: "created_at" };
 
 export default function ContactsPage() {
   const router = useRouter();
   const [search, setSearch] = usePersistedState("contacts.search", "");
-  const [filters, setFilters] = usePersistedState(
-    "contacts.filters",
-    NO_FILTERS,
-  );
-  const [columnVisibility, setColumnVisibility] = usePersistedState(
-    "contacts.columns",
-    ALL_COLUMNS_VISIBLE,
-  );
-  const [page, setPage] = useState(1);
   const [removeId, setRemoveId] = useState<number | null>(null);
   const debouncedSearch = useDebouncedValue(search);
-  const statusValue = filters.find(isStatusFilter)?.value;
-  const status = typeof statusValue === "string" ? statusValue : "";
-  const setStatus = (value: string) =>
-    setFilters([
-      ...filters.filter((filter) => !isStatusFilter(filter)),
-      ...(value ? [{ field: "status", operator: "eq", value }] : []),
-    ]);
-  const contacts = useContacts({
-    page,
-    per_page: 10,
-    search: debouncedSearch,
-    ...filtersToQuery(filters),
-  });
   const remove = useDeleteContact();
-  const columns: DataTableColumn<
-    NonNullable<typeof contacts.data>["items"][number]
-  >[] = [
+  const columns: DataTableColumn<Contact>[] = [
     {
       key: "name",
       header: "Contacto",
@@ -145,6 +113,19 @@ export default function ContactsPage() {
       ),
     },
   ];
+  const list = useListView("contacts", {
+    columns: columns.map((column) => column.key),
+    sortFields: SORT_FIELDS,
+  });
+  const { setPage } = list;
+  const statusValue = list.filterValue("status");
+  const status = typeof statusValue === "string" ? statusValue : "";
+  const contacts = useContacts({
+    page: list.page,
+    per_page: 10,
+    search: debouncedSearch,
+    ...list.query,
+  });
   return (
     <>
       <PageHeader
@@ -171,37 +152,15 @@ export default function ContactsPage() {
         }}
         search={search}
         placeholder="Buscar por nombre, correo o teléfono…"
-        activeFilters={filters.length}
-        onClearFilters={() => {
-          setFilters(NO_FILTERS);
-          setPage(1);
-        }}
+        activeFilters={list.filters.length}
+        onClearFilters={list.clearFilters}
       >
-        <SavedViewsMenu
-          columnVisibility={columnVisibility}
-          columns={columns.map((column) => column.key)}
-          entityType="contacts"
-          filters={filters}
-          onApply={(view) => {
-            if (!view) return;
-            setFilters(view.filters);
-            setColumnVisibility(
-              viewColumnVisibility(
-                view,
-                columns.map((column) => column.key),
-              ),
-            );
-            setPage(1);
-          }}
-        />
+        <SavedViewsMenu entityType="contacts" {...list.views} />
         <select
           aria-label="Filtrar por estado"
           className="border-border text-muted h-9 rounded-lg border bg-white px-2.5 text-xs font-semibold"
           value={status}
-          onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(1);
-          }}
+          onChange={(event) => list.setFilter("status", event.target.value)}
         >
           <option value="">Todos los estados</option>
           <option value="active">Activos</option>
@@ -214,8 +173,9 @@ export default function ContactsPage() {
       ) : (
         <>
           <DataTable
-            columnVisibility={columnVisibility}
-            onColumnVisibilityChange={setColumnVisibility}
+            {...list.sorting}
+            columnVisibility={list.columnVisibility}
+            onColumnVisibilityChange={list.setColumnVisibility}
             columns={columns}
             emptyDescription="Crea el primer contacto o ajusta tu búsqueda para ver resultados."
             emptyTitle="No hay contactos"

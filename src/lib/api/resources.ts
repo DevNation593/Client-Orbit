@@ -28,14 +28,24 @@ import type {
 } from "@/types/domain";
 import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
-import type { DuplicateCandidate } from "@/features/duplicates/contact-duplicates";
-import type { ApiNotification } from "@/features/notifications/notifications";
+import type { DuplicateCandidate } from "@/features/duplicates/duplicates";
+import type {
+  ApiNotification,
+  NotificationPreference,
+  NotificationPreferenceSet,
+} from "@/features/notifications/notifications";
 import type {
   SavedView,
   SavedViewPayload,
 } from "@/features/saved-views/saved-views";
 import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
+
+/** `duplicate_id` is absorbed and deleted; overrides win over both records. */
+export interface MergeBody {
+  duplicate_id: number;
+  field_overrides?: Record<string, unknown>;
+}
 
 export interface Paginated<T> {
   items: T[];
@@ -53,6 +63,23 @@ export async function getPaginated<T>(
   return {
     items: response.data,
     meta: response.meta as unknown as PaginationMeta,
+  };
+}
+
+/** The preference rows travel in `data`; the catalog to render them in `meta`. */
+async function preferenceSet(
+  options: Parameters<typeof apiClient.requestEnvelope>[1],
+): Promise<NotificationPreferenceSet> {
+  const response = await apiClient.requestEnvelope<NotificationPreference[]>(
+    "notification-preferences",
+    options,
+  );
+  const meta = response.meta as Omit<NotificationPreferenceSet, "preferences">;
+  return {
+    preferences: response.data,
+    events: meta.events ?? [],
+    channels: meta.channels ?? [],
+    defaults: meta.defaults ?? {},
   };
 }
 
@@ -81,8 +108,7 @@ export const crmApi = {
         "contacts/duplicate-check",
         criteria,
       ),
-    /** Absorbs `duplicate_id` into contact `id`; the duplicate is deleted. */
-    merge: (id: number, body: { duplicate_id: number }) =>
+    merge: (id: number, body: MergeBody) =>
       apiClient.post<Contact>(`contacts/${id}/merge`, body),
   },
   organizations: {
@@ -95,6 +121,13 @@ export const crmApi = {
       apiClient.patch<Organization>(`organizations/${id}`, body),
     remove: (id: number) =>
       apiClient.delete<{ deleted: boolean }>(`organizations/${id}`),
+    duplicateCheck: (criteria: Record<string, unknown>) =>
+      apiClient.post<DuplicateCandidate[]>(
+        "organizations/duplicate-check",
+        criteria,
+      ),
+    merge: (id: number, body: MergeBody) =>
+      apiClient.post<Organization>(`organizations/${id}/merge`, body),
   },
   leads: {
     list: (query?: QueryParams) => getPaginated<Lead>("leads", query),
@@ -304,6 +337,8 @@ export const crmApi = {
       getPaginated<SavedView>("saved-views", query),
     create: (body: SavedViewPayload) =>
       apiClient.post<SavedView>("saved-views", body),
+    update: (id: number, body: Partial<SavedViewPayload>) =>
+      apiClient.patch<SavedView>(`saved-views/${id}`, body),
     remove: (id: number) =>
       apiClient.delete<{ deleted: boolean }>(`saved-views/${id}`),
   },
@@ -316,5 +351,13 @@ export const crmApi = {
       apiClient.patch<ApiNotification>(`notifications/${id}/read`),
     markAllRead: () =>
       apiClient.patch<{ updated: number }>("notifications/read-all"),
+    preferences: () => preferenceSet({ method: "GET" }),
+    /** Saves the given rows and answers with the whole set. */
+    updatePreferences: (
+      preferences: Array<
+        Pick<NotificationPreference, "event" | "channel" | "enabled"> &
+          Partial<Pick<NotificationPreference, "delivery">>
+      >,
+    ) => preferenceSet({ method: "PUT", body: { preferences } }),
   },
 };

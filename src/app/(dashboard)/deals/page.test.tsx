@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/lib/auth-store";
 import DealsPage from "./page";
@@ -45,14 +46,42 @@ function json(body: unknown, status = 200) {
   });
 }
 
+const savedView = {
+  id: 6,
+  entity_type: "opportunities",
+  name: "Ventas por nombre",
+  visibility: "private",
+  sort_field: "name",
+  sort_direction: "asc",
+  columns: null,
+  is_default: false,
+  user_id: 1,
+  owner: { id: 1, name: "Admin" },
+  filters: [{ field: "pipeline_id", operator: "eq", value: 1 }],
+};
+
 /** Serves the deal list from `stageId` and lets each test decide the PATCH outcome. */
-function stubApi(patch: () => Promise<Response>) {
+function stubApi(patch: () => Promise<Response> = async () => json({})) {
   const state = { stageId: 1 };
+  const requested: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init?: RequestInit) => {
       const path = url.replace("/api/backend/", "");
+      requested.push(decodeURIComponent(path));
       if (path === "pipelines") return json({ data: [pipeline], meta: {} });
+      if (path.startsWith("saved-views?"))
+        return json({
+          data: [savedView],
+          meta: {
+            current_page: 1,
+            from: 1,
+            last_page: 1,
+            per_page: 50,
+            to: 1,
+            total: 1,
+          },
+        });
       if (path === "deals/12" && init?.method === "PATCH") {
         const response = await patch();
         if (response.ok) state.stageId = 2;
@@ -73,6 +102,7 @@ function stubApi(patch: () => Promise<Response>) {
       return json({ message: "Not found", errors: {} }, 404);
     }),
   );
+  return requested;
 }
 
 function renderPage() {
@@ -118,6 +148,34 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe("DealsPage saved views", () => {
+  it("applies the pipeline and order of the chosen view", async () => {
+    useAuthStore.setState({
+      user: {
+        id: 1,
+        name: "Admin",
+        email: "admin@example.com",
+        permissions: ["deals.view", "saved_views.view"],
+      },
+    });
+    const requested = stubApi();
+    renderPage();
+
+    await userEvent.selectOptions(
+      await screen.findByLabelText("Vista guardada"),
+      await screen.findByRole("option", { name: "Ventas por nombre" }),
+    );
+
+    await vi.waitFor(() =>
+      expect(requested).toContain(
+        "deals?page=1&per_page=100&filter[pipeline_id][operator]=eq&filter[pipeline_id][value]=1&sort=name&direction=asc",
+      ),
+    );
+    expect(requested).toContain("saved-views?entity_type=deals&per_page=50");
+    expect(screen.getByRole("button", { name: "1 filtro" })).toBeInTheDocument();
+  });
 });
 
 describe("DealsPage board", () => {

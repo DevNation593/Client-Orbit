@@ -10,6 +10,7 @@ import {
   useOrganization,
   useUpdateOrganization,
 } from "@/hooks/use-crm";
+import { OrganizationDuplicates } from "@/features/duplicates/organization-duplicates";
 import { formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/common/page-header";
 import { RecordSummary } from "@/components/common/record-summary";
@@ -94,6 +95,7 @@ export default function OrganizationDetailPage() {
               Eliminar
             </Button>
           </RecordSummary>
+          <OrganizationDuplicates organization={item} />
           <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
             <Card>
               <CardHeader>
