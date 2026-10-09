@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { authApi } from "@/features/auth/api";
 import { applyServerErrors } from "@/features/auth/utils";
+import { NotificationPreferences } from "@/features/notifications/notification-preferences";
 import { useAuthStore } from "@/lib/auth-store";
 import { PageHeader } from "@/components/common/page-header";
 import { Avatar } from "@/components/common/avatar";
@@ -118,6 +119,9 @@ export default function ProfilePage() {
             </form>
           </CardContent>
         </Card>
+      </div>
+      <div className="mt-6 max-w-4xl">
+        <NotificationPreferences />
       </div>
     </>
   );

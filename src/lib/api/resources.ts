@@ -29,7 +29,11 @@ import type {
 import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
 import type { DuplicateCandidate } from "@/features/duplicates/duplicates";
-import type { ApiNotification } from "@/features/notifications/notifications";
+import type {
+  ApiNotification,
+  NotificationPreference,
+  NotificationPreferenceSet,
+} from "@/features/notifications/notifications";
 import type {
   SavedView,
   SavedViewPayload,
@@ -59,6 +63,23 @@ export async function getPaginated<T>(
   return {
     items: response.data,
     meta: response.meta as unknown as PaginationMeta,
+  };
+}
+
+/** The preference rows travel in `data`; the catalog to render them in `meta`. */
+async function preferenceSet(
+  options: Parameters<typeof apiClient.requestEnvelope>[1],
+): Promise<NotificationPreferenceSet> {
+  const response = await apiClient.requestEnvelope<NotificationPreference[]>(
+    "notification-preferences",
+    options,
+  );
+  const meta = response.meta as Omit<NotificationPreferenceSet, "preferences">;
+  return {
+    preferences: response.data,
+    events: meta.events ?? [],
+    channels: meta.channels ?? [],
+    defaults: meta.defaults ?? {},
   };
 }
 
@@ -330,5 +351,13 @@ export const crmApi = {
       apiClient.patch<ApiNotification>(`notifications/${id}/read`),
     markAllRead: () =>
       apiClient.patch<{ updated: number }>("notifications/read-all"),
+    preferences: () => preferenceSet({ method: "GET" }),
+    /** Saves the given rows and answers with the whole set. */
+    updatePreferences: (
+      preferences: Array<
+        Pick<NotificationPreference, "event" | "channel" | "enabled"> &
+          Partial<Pick<NotificationPreference, "delivery">>
+      >,
+    ) => preferenceSet({ method: "PUT", body: { preferences } }),
   },
 };

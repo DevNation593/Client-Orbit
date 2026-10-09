@@ -52,3 +52,54 @@ export function notificationHref(
   }
   return undefined;
 }
+
+/** One row of `GET /notification-preferences`. */
+export interface NotificationPreference {
+  event: string;
+  channel: string;
+  enabled: boolean;
+  delivery: "immediate" | "daily" | "weekly";
+}
+
+/** `data` and `meta` of `GET /notification-preferences`. */
+export interface NotificationPreferenceSet {
+  preferences: NotificationPreference[];
+  events: string[];
+  channels: Array<{ key: string; operational: boolean }>;
+  defaults: Record<string, boolean>;
+}
+
+export const notificationEventLabels: Record<string, string> = {
+  "lead.assigned": "Lead asignado",
+  "task.overdue": "Tarea vencida",
+  "conversation.received": "Mensaje recibido",
+  "quote.viewed": "Cotización vista",
+  "opportunity.stalled": "Oportunidad estancada",
+  "ticket.urgent": "Ticket urgente",
+  "goal.completed": "Meta cumplida",
+  "import.completed": "Importación terminada",
+  "export.ready": "Exportación lista",
+};
+
+export const notificationChannelLabels: Record<string, string> = {
+  in_app: "En la aplicación",
+  email: "Correo",
+  push: "Push",
+  whatsapp: "WhatsApp",
+  sms: "SMS",
+};
+
+/**
+ * Whether an event reaches the user through a channel: their choice for the
+ * event, else their choice for every event (`*`), else the channel default.
+ */
+export function preferenceEnabled(
+  preferences: NotificationPreference[],
+  defaults: Record<string, boolean>,
+  event: string,
+  channel: string,
+): boolean {
+  const find = (name: string) =>
+    preferences.find((row) => row.event === name && row.channel === channel);
+  return (find(event) ?? find("*"))?.enabled ?? defaults[channel] ?? false;
+}

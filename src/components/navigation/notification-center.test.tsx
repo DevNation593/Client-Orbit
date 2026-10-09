@@ -3,7 +3,17 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/lib/auth-store";
+import type { RealtimeClient } from "@/lib/realtime";
 import { NotificationCenter } from "./notification-center";
+
+// Realtime is off unless a test hands over a client.
+const realtime = vi.hoisted(() => ({
+  client: null as RealtimeClient | null,
+}));
+vi.mock("@/lib/realtime", async (original) => ({
+  ...(await original<typeof import("@/lib/realtime")>()),
+  connectRealtime: async () => realtime.client,
+}));
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -51,8 +61,10 @@ function seed() {
 }
 
 /** A small in-memory notifications API. */
-function stubApi(options: { failList?: boolean } = {}) {
-  const notifications = seed();
+function stubApi(
+  options: { failList?: boolean; notifications?: ReturnType<typeof seed> } = {},
+) {
+  const notifications = options.notifications ?? seed();
   const requested: string[] = [];
   vi.stubGlobal(
     "fetch",
@@ -123,6 +135,7 @@ beforeEach(() => signIn(["notifications.view"]));
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  realtime.client = null;
 });
 
 describe("NotificationCenter", () => {
@@ -135,6 +148,49 @@ describe("NotificationCenter", () => {
         name: "Notificaciones, 2 sin leer",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("counts a notification as soon as the server pushes it", async () => {
+    const notifications = seed();
+    stubApi({ notifications });
+    let push: ((payload: unknown) => void) | null = null;
+    realtime.client = {
+      private: () => ({
+        notification: (listener) => {
+          push = listener;
+        },
+      }),
+      leave: () => {},
+      disconnect: () => {},
+    };
+    renderCenter();
+    await screen.findByRole("button", { name: "Notificaciones, 2 sin leer" });
+    await vi.waitFor(() => expect(push).not.toBeNull());
+
+    const arrived = { ...notifications[0], id: "n-new", title: "Otro lead" };
+    notifications.unshift(arrived);
+    (push as unknown as (payload: unknown) => void)({
+      ...arrived,
+      tenant_id: 1,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Notificaciones, 3 sin leer" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers the way to the notification preferences", async () => {
+    stubApi();
+    renderCenter();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Notificaciones/ }),
+    );
+
+    expect(screen.getByRole("link", { name: "Preferencias" })).toHaveAttribute(
+      "href",
+      "/profile#notificaciones",
+    );
   });
 
   it("lists the user's notifications with links to what they are about", async () => {
