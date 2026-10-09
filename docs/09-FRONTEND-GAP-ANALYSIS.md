@@ -30,25 +30,25 @@ Además, varias pantallas del CRM base siguen usando los rodeos anteriores a API
 | App shell, sidebar, topbar y tenant switcher | PARTIAL | Shell responsive, breadcrumbs, command palette, quick create, permisos visibles, tenant activo y menú de usuario | Navegación por módulos habilitados. El API no expone flags ni planes (ver BLOCKED_BY_API) |
 | Autenticación y sesiones | DONE | Login, registro, logout, recuperación, invitaciones y cookie HttpOnly | MFA y gestión de sesiones activas no están expuestos por API |
 | RBAC y permisos | DONE | Can, menús y acciones condicionadas por permisos | Matriz editable de permisos y field-level permissions |
-| Contactos | DONE | CRUD, filtros, paginación, campos personalizados, acciones rápidas, preferencias de búsqueda/columnas y API real | Vistas guardadas (`/saved-views`) y etiquetas (`/tags`): API disponible, sin consumir |
+| Contactos | DONE | CRUD, filtros, paginación, campos personalizados, acciones rápidas, etiquetas y vistas guardadas (`/saved-views`) que aplican filtros y columnas a la lista | Orden por columna en servidor; vistas guardadas en el resto de listas (el menú es reutilizable); compartir vistas por rol o tenant |
 | Customer 360 | DONE | Ficha del contacto alimentada por `GET /contacts/{id}/overview`: oportunidades, tareas, relaciones y archivos con total por módulo; los módulos sin permiso no se muestran | Leads, conversaciones y cotizaciones que el overview ya devuelve; enlace «ver todos» cuando hay más de 10 |
 | Timeline y actividades | DONE | Timeline del contacto desde `GET /contacts/{id}/timeline`: actividad, eventos de dominio, auditoría y cotizaciones, con carga de páginas anteriores, filtros por categoría y composer | Los filtros se aplican a lo ya cargado; el API solo filtra por `source` y `event`. La página `/activities` sigue usando el listado general |
-| Duplicados y fusión | MISSING | — | `POST /contacts/duplicate-check`, `POST /contacts/{id}/merge` y equivalentes en `/companies` |
+| Duplicados y fusión | PARTIAL | La ficha del contacto detecta posibles duplicados (`POST /contacts/duplicate-check`) y permite fusionarlos en el contacto abierto | Elegir valores campo a campo (`field_overrides`), comprobación al crear un contacto y lo mismo para organizaciones (`/companies`) |
 | Organizaciones | DONE | CRUD, contactos relacionados y campos personalizados | Timeline y acciones 360 |
-| Leads | PARTIAL | CRUD, filtros, detalle y conversión a contacto/organización/deal | Score explicable (`/leads/{id}/scores`), routing (`/leads/{id}/route`, `/routing-executions`) y actividad 360 |
-| Oportunidades y pipelines | PARTIAL | CRUD, pipeline/stage, Kanban, cambio de etapa y validación backend | Rollback optimista explícito, detalle enriquecido, productos, cotizaciones y forecast |
+| Leads | PARTIAL | CRUD, filtros, detalle, etiquetas y conversión a contacto/organización/deal | Score explicable (`/leads/{id}/scores`), routing (`/leads/{id}/route`, `/routing-executions`) y actividad 360 |
+| Oportunidades y pipelines | PARTIAL | CRUD, pipeline/stage, etiquetas y Kanban con movimiento optimista que se revierte y explica el motivo si el API lo rechaza | Detalle enriquecido, productos, cotizaciones y forecast |
 | Tareas | DONE | CRUD, filtros, estados, prioridad, responsable y vencimiento | Calendario y relaciones navegables |
 | Archivos | PARTIAL | Listado, carga, descarga y eliminación | Asociación desde fichas. `GET /files` sigue sin filtro por registro relacionado |
 | Campos personalizados y formularios dinámicos | DONE | CRUD de definiciones, renderer por tipos y validación cliente | Reglas visuales avanzadas, layout y permisos por campo |
 | Entidades personalizadas y registros | DONE | Definiciones, campos, CRUD de registros y rutas por IDs | Layout builder, vistas y permisos configurables |
 | Relaciones | DONE | Selector de registros core/custom, creación, eliminación, validación tenant y vista embebida en Customer 360 | Filtros server-side por registro |
 | Automatizaciones | PARTIAL | Builder declarativo básico, CRUD y estado | Historial de ejecuciones y reintentos: el API solo expone el CRUD |
-| Importaciones/exportaciones | PARTIAL | Pantalla de datos y consumo de endpoints | Seguimiento del job con `GET /imports/{id}` y `GET /exports/{id}`; errores descargables |
+| Importaciones/exportaciones | DONE | Seguimiento del lote hasta que termina: filas procesadas y fallidas, errores por fila, fallo del job y enlace de descarga de la exportación | Historial de lotes anteriores (no hay endpoint de listado); el enlace de descarga solo existe con almacenamiento S3 |
 | Auditoría | DONE | Visor conectado a API | Filtros avanzados y exportación |
 | Integraciones | PARTIAL | Catálogo, credenciales cifradas en backend, health/connect/disconnect y endpoints webhook | OAuth interactivo y panel de entregas de webhooks: sin endpoint |
 | Búsqueda global | DONE | `GET /search` con ranking y permisos en backend: contactos, organizaciones, leads, oportunidades, documentos y registros personalizados, agrupados y con deep links | Las tareas no están en `/search` y se consultan aparte; los documentos enlazan al listado porque no tienen ficha |
 | Command palette | DONE | Ctrl/Cmd+K, navegación y acciones de creación condicionadas por permisos | Catálogo de acciones administrable |
-| Notificaciones | PARTIAL | Panel visual local | Conectar `/notifications`, `/notifications/unread-count`, `/notification-preferences` y los canales privados de Reverb. No hay cliente de websockets instalado |
+| Notificaciones | PARTIAL | Centro conectado al API: contador de no leídas, últimas notificaciones, marcar una o todas como leídas y enlace al registro | Tiempo real por Reverb (hoy el contador se refresca cada minuto; no hay cliente de websockets instalado) y pantalla de preferencias (`/notification-preferences`) |
 
 ## Inventario funcional — Módulos con API disponible y sin pantalla
 

@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LayoutGrid, List, Plus } from "lucide-react";
-import { useMemo } from "react";
-import { useDeals, usePipelines, useUpdateDeal } from "@/hooks/use-crm";
+import { useMemo, useState } from "react";
+import { useDeals, useMoveDeal, usePipelines } from "@/hooks/use-crm";
 import { usePersistedState } from "@/hooks/use-persisted-state";
+import { ApiError } from "@/lib/api/error";
+import type { Deal } from "@/types/domain";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/common/page-header";
 import { ErrorState } from "@/components/common/async-state";
@@ -32,7 +34,8 @@ export default function DealsPage() {
   const [search, setSearch] = usePersistedState("deals.search", "");
   const pipelines = usePipelines();
   const deals = useDeals({ page: 1, per_page: 100, search });
-  const update = useUpdateDeal();
+  const move = useMoveDeal();
+  const [moveError, setMoveError] = useState<string | null>(null);
   const selectedPipeline =
     pipelines.data?.find((pipeline) => pipeline.id === pipelineId) ??
     pipelines.data?.find((pipeline) => pipeline.is_default) ??
@@ -96,10 +99,21 @@ export default function DealsPage() {
       render: (deal) => <StatusBadge value={deal.status} />,
     },
   ];
-  const moveDeal = (
-    deal: NonNullable<typeof deals.data>["items"][number],
-    stageId: number,
-  ) => void update.mutateAsync({ id: deal.id, body: { stage_id: stageId } });
+  const moveDeal = (deal: Deal, stageId: number) => {
+    setMoveError(null);
+    move.mutate(
+      { deal, stageId },
+      {
+        onError: (error) =>
+          setMoveError(
+            `No se pudo mover «${deal.name}»: ` +
+              (error instanceof ApiError
+                ? error.message
+                : "revisa tu conexión e inténtalo de nuevo."),
+          ),
+      },
+    );
+  };
   return (
     <>
       <PageHeader
@@ -173,12 +187,22 @@ export default function DealsPage() {
           }}
         />
       ) : selectedPipeline && view === "board" ? (
-        <PipelineBoard
-          deals={filteredDeals}
-          onCreate={() => router.push("/deals/new")}
-          onMove={moveDeal}
-          pipeline={selectedPipeline}
-        />
+        <>
+          {moveError ? (
+            <p
+              className="text-danger mb-3 rounded-xl bg-rose-50 px-3 py-2.5 text-sm font-medium"
+              role="alert"
+            >
+              {moveError}
+            </p>
+          ) : null}
+          <PipelineBoard
+            deals={filteredDeals}
+            onCreate={() => router.push("/deals/new")}
+            onMove={moveDeal}
+            pipeline={selectedPipeline}
+          />
+        </>
       ) : (
         <DataTable
           preferenceKey="deals"

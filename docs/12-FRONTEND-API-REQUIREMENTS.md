@@ -29,6 +29,35 @@ La versión del 2026-09-01 pedía los contratos siguientes. El API los entregó,
 
 ## Contratos que siguen faltando
 
+### Búsqueda global: tareas
+
+Estado actual: `GET /search` cubre contactos, empresas, leads, oportunidades, documentos y registros personalizados, pero no tareas. El frontend las consulta aparte con `GET /tasks?search=`.
+
+Propuesta: aceptar `tasks` en `types[]` y devolverlas con el mismo formato y ranking.
+
+### Etiquetas: quitar una asignación por registro
+
+Estado actual: `DELETE /tags/{tag}/assignments/{assignment}` exige el id de la asignación, y `GET /tags?entity_type=…&entity_id=…` devuelve las etiquetas del registro sin ese id. El frontend lo obtiene repitiendo el `POST` de asignación, que es idempotente.
+
+Propuesta, cualquiera de las dos:
+
+~~~
+DELETE /api/v1/tags/{tag}/assignments?entity_type=contact&entity_id=123
+~~~
+
+o incluir `assignment_id` en cada etiqueta cuando el listado se filtra por registro.
+
+### Importaciones y exportaciones: historial
+
+Estado actual: solo existen `POST` y `GET /{id}`. No hay listado, así que un lote solo se puede seguir desde la pantalla que lo creó.
+
+~~~
+GET /api/v1/imports
+GET /api/v1/exports
+~~~
+
+Además, `download_url` de una exportación solo se genera cuando el disco es S3; con almacenamiento local no hay forma de descargar el archivo.
+
 ### Archivos por registro
 
 Estado actual: `GET /files` no filtra por registro relacionado.

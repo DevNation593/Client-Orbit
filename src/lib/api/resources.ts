@@ -18,6 +18,8 @@ import type {
   Pipeline,
   Relation,
   RelationOptionGroup,
+  Tag,
+  TagAssignment,
   Task,
   TenantInvitation,
   UserMembership,
@@ -26,6 +28,12 @@ import type {
 } from "@/types/domain";
 import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
+import type { DuplicateCandidate } from "@/features/duplicates/contact-duplicates";
+import type { ApiNotification } from "@/features/notifications/notifications";
+import type {
+  SavedView,
+  SavedViewPayload,
+} from "@/features/saved-views/saved-views";
 import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
 
@@ -68,6 +76,14 @@ export const crmApi = {
         page,
         per_page: 25,
       }),
+    duplicateCheck: (criteria: Record<string, unknown>) =>
+      apiClient.post<DuplicateCandidate[]>(
+        "contacts/duplicate-check",
+        criteria,
+      ),
+    /** Absorbs `duplicate_id` into contact `id`; the duplicate is deleted. */
+    merge: (id: number, body: { duplicate_id: number }) =>
+      apiClient.post<Contact>(`contacts/${id}/merge`, body),
   },
   organizations: {
     list: (query?: QueryParams) =>
@@ -271,5 +287,34 @@ export const crmApi = {
   exports: {
     create: (body: unknown) => apiClient.post<ExportBatch>("exports", body),
     get: (id: number) => apiClient.get<ExportBatch>(`exports/${id}`),
+  },
+  tags: {
+    list: (query?: QueryParams) => getPaginated<Tag>("tags", query),
+    create: (body: { name: string; color?: string | null }) =>
+      apiClient.post<Tag>("tags", body),
+    assign: (tagId: number, body: { entity_type: string; entity_id: number }) =>
+      apiClient.post<TagAssignment>(`tags/${tagId}/assignments`, body),
+    unassign: (tagId: number, assignmentId: number) =>
+      apiClient.delete<{ deleted: boolean }>(
+        `tags/${tagId}/assignments/${assignmentId}`,
+      ),
+  },
+  savedViews: {
+    list: (query?: QueryParams) =>
+      getPaginated<SavedView>("saved-views", query),
+    create: (body: SavedViewPayload) =>
+      apiClient.post<SavedView>("saved-views", body),
+    remove: (id: number) =>
+      apiClient.delete<{ deleted: boolean }>(`saved-views/${id}`),
+  },
+  notifications: {
+    list: (query?: QueryParams) =>
+      getPaginated<ApiNotification>("notifications", query),
+    unreadCount: () =>
+      apiClient.get<{ count: number }>("notifications/unread-count"),
+    markRead: (id: string) =>
+      apiClient.patch<ApiNotification>(`notifications/${id}/read`),
+    markAllRead: () =>
+      apiClient.patch<{ updated: number }>("notifications/read-all"),
   },
 };

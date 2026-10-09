@@ -10,6 +10,7 @@ import {
   useUpdateLead,
 } from "@/hooks/use-crm";
 import { formatDate } from "@/lib/utils";
+import { RecordTags } from "@/features/tags/record-tags";
 import { PageHeader } from "@/components/common/page-header";
 import { RecordSummary } from "@/components/common/record-summary";
 import { ErrorState, ListSkeleton } from "@/components/common/async-state";
@@ -127,6 +128,9 @@ export default function LeadDetailPage() {
                   label="Organización vinculada"
                   value={item.organization?.name}
                 />
+                <div className="sm:col-span-2">
+                  <RecordTags entityId={item.id} entityType="lead" />
+                </div>
               </CardContent>
             </Card>
             <Card>
