@@ -15,7 +15,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
-import type { Activity, ActivityType } from "@/types/domain";
+import type { TimelineEntry } from "@/features/customer360/timeline";
+import type { ActivityType } from "@/types/domain";
 import { ApiError } from "@/lib/api/error";
 import { formatDate, titleCase } from "@/lib/utils";
 import { Avatar } from "./avatar";
@@ -69,7 +70,7 @@ export function TimelineFilter({
           className={
             "rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors " +
             (value === option.value
-              ? "bg-white text-brand shadow-sm"
+              ? "text-brand bg-white shadow-sm"
               : "text-muted hover:text-foreground")
           }
           key={option.value}
@@ -88,10 +89,17 @@ export function ActivityTimeline({
   activities,
   loading = false,
   showFilters = true,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: {
-  activities: Activity[];
+  activities: TimelineEntry[];
   loading?: boolean;
   showFilters?: boolean;
+  /** Older entries exist on the server; filters only apply to loaded ones. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const [filter, setFilter] = useState<TimelineFilterValue>("all");
   const filteredActivities = activities.filter((activity) =>
@@ -150,6 +158,18 @@ export function ActivityTimeline({
           })}
         </div>
       )}
+      {hasMore && onLoadMore ? (
+        <div className="flex justify-center">
+          <Button
+            disabled={loadingMore}
+            onClick={onLoadMore}
+            size="sm"
+            variant="outline"
+          >
+            {loadingMore ? "Cargando…" : "Cargar actividad anterior"}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -249,8 +269,7 @@ export function TimelineComposer({
 
 function matchesFilter(type: ActivityType, filter: TimelineFilterValue) {
   if (filter === "all") return true;
-  if (filter === "messages")
-    return type === "email" || type === "whatsapp";
+  if (filter === "messages") return type === "email" || type === "whatsapp";
   if (filter === "sales") return type === "quote" || type === "deal";
   if (filter === "activities")
     return (

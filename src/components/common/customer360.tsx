@@ -7,14 +7,17 @@ import {
   CheckSquare,
   FileText,
   Link2,
+  type LucideIcon,
 } from "lucide-react";
+import type {
+  CustomerOverview,
+  OverviewModule,
+} from "@/features/customer360/overview";
 import type {
   Contact,
   Deal,
-  FileRecord,
   OrganizationReference,
   Relation,
-  Task,
 } from "@/types/domain";
 import { formatCurrency, formatDate, titleCase } from "@/lib/utils";
 import { StatusBadge } from "./status-badge";
@@ -22,244 +25,231 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Customer360Props {
   contact: Contact;
-  organizations: OrganizationReference[];
-  deals: Deal[];
-  tasks: Task[];
-  relations: Relation[];
-  files: FileRecord[];
-  dealsLoading?: boolean;
-  tasksLoading?: boolean;
-  relationsLoading?: boolean;
-  filesLoading?: boolean;
+  /** Modules of the contact overview; absent ones are not visible to the user. */
+  modules: CustomerOverview["modules"] | undefined;
+  loading?: boolean;
 }
 
 export function Customer360Panels({
   contact,
-  organizations,
-  deals,
-  tasks,
-  relations,
-  files,
-  dealsLoading = false,
-  tasksLoading = false,
-  relationsLoading = false,
-  filesLoading = false,
+  modules,
+  loading = false,
 }: Customer360Props) {
+  const organizations = modules?.companies?.items ?? [];
+  const deals = modules?.opportunities;
+  const tasks = modules?.tasks;
+  const relations = modules?.relationships;
+  const files = modules?.documents;
+
   return (
     <section aria-label="Customer 360" className="mt-6 space-y-6">
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Oportunidades</CardTitle>
-                <p className="text-muted mt-1 text-xs">
-                  Negocios vinculados directamente a este contacto
-                </p>
-              </div>
-              <BriefcaseBusiness className="text-brand" size={19} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CollectionState loading={dealsLoading} empty={!deals.length}>
-              <div className="space-y-2">
-                {deals.map((deal) => (
-                  <Link
-                    className="hover:bg-surface-subtle flex items-center gap-3 rounded-xl p-3"
-                    href={"/deals/" + deal.id}
-                    key={deal.id}
-                  >
-                    <span className="bg-brand-soft text-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                      <BriefcaseBusiness size={16} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">
-                        {deal.name}
-                      </span>
-                      <span className="text-muted mt-0.5 block text-xs">
-                        {deal.stage?.name ?? "Sin etapa"} ·{" "}
-                        {formatCurrency(deal.value, deal.currency)}
-                      </span>
-                    </span>
-                    <ArrowUpRight className="text-muted" size={15} />
-                  </Link>
-                ))}
-              </div>
-            </CollectionState>
-          </CardContent>
-        </Card>
+        <ModuleCard
+          description="Negocios del contacto y de sus organizaciones"
+          icon={BriefcaseBusiness}
+          loading={loading}
+          module={deals}
+          title="Oportunidades"
+        >
+          {(items) =>
+            items.map((deal) => (
+              <Link
+                className="hover:bg-surface-subtle flex items-center gap-3 rounded-xl p-3"
+                href={"/deals/" + deal.id}
+                key={deal.id}
+              >
+                <RowIcon icon={BriefcaseBusiness} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {deal.name}
+                  </span>
+                  <span className="text-muted mt-0.5 block text-xs">
+                    {deal.stage?.name ?? "Sin etapa"} ·{" "}
+                    {formatCurrency(deal.value, deal.currency)}
+                  </span>
+                </span>
+                <ArrowUpRight className="text-muted" size={15} />
+              </Link>
+            ))
+          }
+        </ModuleCard>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Tareas</CardTitle>
-                <p className="text-muted mt-1 text-xs">
-                  Seguimientos pendientes del contacto
-                </p>
-              </div>
-              <CheckSquare className="text-brand" size={19} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CollectionState loading={tasksLoading} empty={!tasks.length}>
-              <div className="space-y-2">
-                {tasks.map((task) => (
-                  <Link
-                    className="hover:bg-surface-subtle flex items-center gap-3 rounded-xl p-3"
-                    href={"/tasks/" + task.id}
-                    key={task.id}
-                  >
-                    <span className="bg-brand-soft text-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                      <CheckSquare size={16} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">
-                        {task.title}
-                      </span>
-                      <span className="text-muted mt-0.5 block text-xs">
-                        {formatDate(task.due_at)} ·{" "}
-                        {titleCase(task.priority)}
-                      </span>
-                    </span>
-                    <StatusBadge value={task.status} />
-                  </Link>
-                ))}
-              </div>
-            </CollectionState>
-          </CardContent>
-        </Card>
+        <ModuleCard
+          description="Seguimientos del contacto y de sus registros"
+          icon={CheckSquare}
+          loading={loading}
+          module={tasks}
+          title="Tareas"
+        >
+          {(items) =>
+            items.map((task) => (
+              <Link
+                className="hover:bg-surface-subtle flex items-center gap-3 rounded-xl p-3"
+                href={"/tasks/" + task.id}
+                key={task.id}
+              >
+                <RowIcon icon={CheckSquare} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {task.title}
+                  </span>
+                  <span className="text-muted mt-0.5 block text-xs">
+                    {formatDate(task.due_at)} · {titleCase(task.priority)}
+                  </span>
+                </span>
+                <StatusBadge value={task.status} />
+              </Link>
+            ))
+          }
+        </ModuleCard>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Relaciones</CardTitle>
-                <p className="text-muted mt-1 text-xs">
-                  Registros relacionados desde cualquier módulo
-                </p>
-              </div>
-              <Link2 className="text-brand" size={19} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CollectionState loading={relationsLoading} empty={!relations.length}>
-              <div className="space-y-2">
-                {relations.map((relation) => {
-                  const record = relationRecord(
-                    relation,
-                    contact,
-                    organizations,
-                    deals,
-                  );
-                  return (
-                    <div
-                      className="flex items-center gap-3 rounded-xl p-3"
-                      key={relation.id}
+        <ModuleCard
+          description="Registros relacionados desde cualquier módulo"
+          icon={Link2}
+          loading={loading}
+          module={relations}
+          title="Relaciones"
+        >
+          {(items) =>
+            items.map((relation) => {
+              const record = relationRecord(
+                relation,
+                contact,
+                organizations,
+                deals?.items ?? [],
+              );
+              return (
+                <div
+                  className="flex items-center gap-3 rounded-xl p-3"
+                  key={relation.id}
+                >
+                  <RowIcon icon={Link2} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">
+                      {record.label}
+                    </span>
+                    <span className="text-muted mt-0.5 block text-xs">
+                      {titleCase(relation.relation_type)}
+                    </span>
+                  </span>
+                  {record.href ? (
+                    <Link
+                      aria-label={"Abrir " + record.label}
+                      className="text-brand"
+                      href={record.href}
                     >
-                      <span className="bg-brand-soft text-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                        <Link2 size={16} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">
-                          {record.label}
-                        </span>
-                        <span className="text-muted mt-0.5 block text-xs">
-                          {titleCase(relation.relation_type)}
-                        </span>
-                      </span>
-                      {record.href ? (
-                        <Link
-                          aria-label={"Abrir " + record.label}
-                          className="text-brand"
-                          href={record.href}
-                        >
-                          <ArrowUpRight size={15} />
-                        </Link>
-                      ) : (
-                        <span className="text-muted text-xs">
-                          {record.type} #{record.id}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CollectionState>
-          </CardContent>
-        </Card>
+                      <ArrowUpRight size={15} />
+                    </Link>
+                  ) : (
+                    <span className="text-muted text-xs">
+                      {record.type} #{record.id}
+                    </span>
+                  )}
+                </div>
+              );
+            })
+          }
+        </ModuleCard>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Archivos</CardTitle>
-                <p className="text-muted mt-1 text-xs">
-                  Documentos asociados a este contacto
-                </p>
-              </div>
-              <FileText className="text-brand" size={19} />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CollectionState loading={filesLoading} empty={!files.length}>
-              <div className="space-y-2">
-                {files.map((file) => (
-                  <a
-                    className="hover:bg-surface-subtle flex items-center gap-3 rounded-xl p-3"
-                    href={"/api/backend/files/" + file.id + "/download"}
-                    key={file.id}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    <span className="bg-brand-soft text-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                      <FileText size={16} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">
-                        {file.filename}
-                      </span>
-                      <span className="text-muted mt-0.5 block text-xs">
-                        {formatFileSize(file.size)} · {formatDate(file.created_at)}
-                      </span>
-                    </span>
-                    <ArrowUpRight className="text-muted" size={15} />
-                  </a>
-                ))}
-              </div>
-            </CollectionState>
-          </CardContent>
-        </Card>
+        <ModuleCard
+          description="Documentos del contacto y de sus registros"
+          icon={FileText}
+          loading={loading}
+          module={files}
+          title="Archivos"
+        >
+          {(items) =>
+            items.map((file) => (
+              <a
+                className="hover:bg-surface-subtle flex items-center gap-3 rounded-xl p-3"
+                href={"/api/backend/files/" + file.id + "/download"}
+                key={file.id}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <RowIcon icon={FileText} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    {file.filename}
+                  </span>
+                  <span className="text-muted mt-0.5 block text-xs">
+                    {formatFileSize(file.size)} · {formatDate(file.created_at)}
+                  </span>
+                </span>
+                <ArrowUpRight className="text-muted" size={15} />
+              </a>
+            ))
+          }
+        </ModuleCard>
       </div>
     </section>
   );
 }
 
-function CollectionState({
+function ModuleCard<T>({
+  title,
+  description,
+  icon: Icon,
+  module,
   loading,
-  empty,
   children,
 }: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  module: OverviewModule<T> | undefined;
   loading: boolean;
-  empty: boolean;
-  children: React.ReactNode;
+  children: (items: T[]) => React.ReactNode;
 }) {
-  if (loading)
-    return (
-      <div className="space-y-2">
-        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
-        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
-      </div>
-    );
-  if (empty)
-    return (
-      <p className="text-muted border-border rounded-xl border border-dashed p-6 text-center text-sm">
-        No hay registros asociados todavía.
-      </p>
-    );
-  return <>{children}</>;
+  // The API omits a module when the user lacks its permission.
+  if (!loading && !module) return null;
+  const items = module?.items ?? [];
+  const total = module?.count ?? 0;
+
+  return (
+    <Card aria-label={title} role="region">
+      <CardHeader>
+        <div className="flex w-full items-center justify-between gap-3">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <p className="text-muted mt-1 text-xs">{description}</p>
+          </div>
+          <Icon className="text-brand" size={19} />
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-2">
+            <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
+            <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
+          </div>
+        ) : !items.length ? (
+          <p className="text-muted border-border rounded-xl border border-dashed p-6 text-center text-sm">
+            No hay registros asociados todavía.
+          </p>
+        ) : (
+          <>
+            <div className="space-y-2">{children(items)}</div>
+            {total > items.length ? (
+              <p className="text-muted mt-3 text-center text-xs">
+                Mostrando {items.length} de {total}
+              </p>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RowIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <span className="bg-brand-soft text-brand flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+      <Icon size={16} />
+    </span>
+  );
 }
 
 function relationRecord(
@@ -270,7 +260,7 @@ function relationRecord(
 ) {
   const sourceIsContact =
     isEntityType(relation.from_type, "contact") &&
-    relation.from_id === String(contact.id);
+    String(relation.from_id) === String(contact.id);
   const type = sourceIsContact ? relation.to_type : relation.from_type;
   const id = sourceIsContact ? relation.to_id : relation.from_id;
   const normalizedType = normalizeEntityType(type);
@@ -290,7 +280,8 @@ function relationRecord(
         ?.name ?? "Organización #" + id;
     href = "/organizations/" + id;
   } else if (normalizedType === "deal") {
-    label = deals.find((deal) => deal.id === numericId)?.name ?? "Oportunidad #" + id;
+    label =
+      deals.find((deal) => deal.id === numericId)?.name ?? "Oportunidad #" + id;
     href = "/deals/" + id;
   } else if (normalizedType === "lead") {
     label = "Lead #" + id;

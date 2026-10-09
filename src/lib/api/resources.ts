@@ -24,6 +24,9 @@ import type {
   WebhookEndpoint,
   WebhookEndpointCreateResponse,
 } from "@/types/domain";
+import type { CustomerOverview } from "@/features/customer360/overview";
+import type { TimelineEvent } from "@/features/customer360/timeline";
+import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
 
 export interface Paginated<T> {
@@ -46,6 +49,7 @@ export async function getPaginated<T>(
 }
 
 export const crmApi = {
+  search: (query: QueryParams) => getPaginated<SearchRecord>("search", query),
   contacts: {
     list: (query?: QueryParams) => getPaginated<Contact>("contacts", query),
     get: (id: number) => apiClient.get<Contact>(`contacts/${id}`),
@@ -54,6 +58,16 @@ export const crmApi = {
       apiClient.patch<Contact>(`contacts/${id}`, body),
     remove: (id: number) =>
       apiClient.delete<{ deleted: boolean }>(`contacts/${id}`),
+    // 10 is the most the API returns per module.
+    overview: (id: number) =>
+      apiClient.get<CustomerOverview>(`contacts/${id}/overview`, {
+        recent_limit: 10,
+      }),
+    timeline: (id: number, page: number) =>
+      getPaginated<TimelineEvent>(`contacts/${id}/timeline`, {
+        page,
+        per_page: 25,
+      }),
   },
   organizations: {
     list: (query?: QueryParams) =>

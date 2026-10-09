@@ -1,12 +1,19 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { crmApi } from "@/lib/api/resources";
 import type { QueryParams } from "@/types/api";
 
 export const queryKeys = {
   contacts: (query?: QueryParams) => ["contacts", query ?? {}] as const,
   contact: (id: number) => ["contacts", id] as const,
+  contactOverview: (id: number) => ["contacts", id, "overview"] as const,
+  contactTimeline: (id: number) => ["contacts", id, "timeline"] as const,
   organizations: (query?: QueryParams) =>
     ["organizations", query ?? {}] as const,
   organization: (id: number) => ["organizations", id] as const,
@@ -44,6 +51,23 @@ export function useContact(id: number) {
   return useQuery({
     queryKey: queryKeys.contact(id),
     queryFn: () => crmApi.contacts.get(id),
+    enabled: Number.isFinite(id),
+  });
+}
+export function useContactOverview(id: number) {
+  return useQuery({
+    queryKey: queryKeys.contactOverview(id),
+    queryFn: () => crmApi.contacts.overview(id),
+    enabled: Number.isFinite(id),
+  });
+}
+export function useContactTimeline(id: number) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.contactTimeline(id),
+    queryFn: ({ pageParam }) => crmApi.contacts.timeline(id, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: ({ meta }) =>
+      meta.current_page < meta.last_page ? meta.current_page + 1 : undefined,
     enabled: Number.isFinite(id),
   });
 }
