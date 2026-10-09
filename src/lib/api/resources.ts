@@ -26,6 +26,7 @@ import type {
 } from "@/types/domain";
 import type { CustomerOverview } from "@/features/customer360/overview";
 import type { TimelineEvent } from "@/features/customer360/timeline";
+import type { ApiNotification } from "@/features/notifications/notifications";
 import type { SearchRecord } from "@/features/search/global-search";
 import { apiClient } from "./client";
 
@@ -271,5 +272,15 @@ export const crmApi = {
   exports: {
     create: (body: unknown) => apiClient.post<ExportBatch>("exports", body),
     get: (id: number) => apiClient.get<ExportBatch>(`exports/${id}`),
+  },
+  notifications: {
+    list: (query?: QueryParams) =>
+      getPaginated<ApiNotification>("notifications", query),
+    unreadCount: () =>
+      apiClient.get<{ count: number }>("notifications/unread-count"),
+    markRead: (id: string) =>
+      apiClient.patch<ApiNotification>(`notifications/${id}/read`),
+    markAllRead: () =>
+      apiClient.patch<{ updated: number }>("notifications/read-all"),
   },
 };
